@@ -29,7 +29,7 @@ def render():
     # ==========================
     st.subheader("📈 Progresso do Sistema")
 
-    progresso = 55  # altere conforme for evoluindo
+    progresso = 60  # altere conforme for evoluindo
 
     st.progress(progresso / 100)
     st.write(f"### {progresso}% concluído")
