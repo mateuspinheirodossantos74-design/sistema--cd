@@ -45,6 +45,7 @@ def render():
     - ✔️ Início  
     - ✔️ Visão Geral  
     - ✔️ Tarefas  
+    - 🔄 Relatorio
     - 🔄 Dashboard  
     - 🔄 Produtividade  
     - ✔️ Registro de Ponto  
