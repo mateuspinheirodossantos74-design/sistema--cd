@@ -115,14 +115,19 @@ def carregar_logs():
 # ==========================
 # RENDER
 # ==========================
-def render():
 
+def render():
     st.title("👥 Gestão de Usuários")
 
     # 🔒 Proteção de acesso
     if st.session_state.get("nivel") != "admin":
         st.error("Acesso permitido apenas para administradores")
         return
+
+    # 🔹 Rerun controlado no início da renderização
+    if st.session_state.get("atualizar"):
+        st.session_state["atualizar"] = False
+        st.experimental_rerun()
 
     abas = st.tabs(["👤 Criar Usuário", "🔄 Reset / Ativar / Desativar", "📜 Logs"])
 
@@ -136,15 +141,18 @@ def render():
         nivel = st.selectbox("Nível de acesso", ["usuario", "admin"])
 
         if st.button("Criar usuário"):
-            resultado = criar_usuario(nome, usuario, nivel)
-            if resultado == "ok":
-                st.success(f"Usuário '{usuario}' criado com sucesso! (Senha padrão: {SENHA_PADRAO})")
-                st.cache_data.clear()
-                st.experimental_rerun()
-            elif resultado == "existe":
-                st.error("Usuário já existe")
+            if not nome or not usuario:
+                st.warning("Preencha nome e usuário")
             else:
-                st.error("Erro ao criar usuário")
+                resultado = criar_usuario(nome, usuario, nivel)
+                if resultado == "ok":
+                    st.success(f"Usuário '{usuario}' criado com sucesso! (Senha padrão: {SENHA_PADRAO})")
+                    st.cache_data.clear()  # limpar cache antes do rerun
+                    st.session_state["atualizar"] = True  # marca flag
+                elif resultado == "existe":
+                    st.error("Usuário já existe")
+                else:
+                    st.error("Erro ao criar usuário")
 
     # ==========================
     # ABA 2: RESET / ATIVAR / DESATIVAR
@@ -163,23 +171,24 @@ def render():
                 col3.write(u["nivel_acesso"])
                 col4.write("✅" if u["ativo"] else "❌")
 
+                # 🔹 Resetar senha
                 if col5.button("Resetar", key=f"reset_{u['usuario']}"):
                     resetar_senha(u["usuario"])
                     st.cache_data.clear()
                     st.success(f"Senha resetada para {u['usuario']}")
-                    st.experimental_rerun()
+                    st.session_state["atualizar"] = True
 
+                # 🔹 Ativar / Desativar
                 if u["ativo"]:
                     if col6.button("Desativar", key=f"des_{u['usuario']}"):
                         alterar_status(u["usuario"], False)
                         st.cache_data.clear()
-                        st.experimental_rerun()
+                        st.session_state["atualizar"] = True
                 else:
                     if col6.button("Ativar", key=f"ativ_{u['usuario']}"):
                         alterar_status(u["usuario"], True)
                         st.cache_data.clear()
-                        st.experimental_rerun()
-
+                        st.session_state["atualizar"] = True
     # ==========================
     # ABA 3: LOGS
     # ==========================
