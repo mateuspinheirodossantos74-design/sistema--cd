@@ -16,7 +16,7 @@ def render():
     - 📊 Dashboards operacionais          
     - 🏢 Controlar demandas por setor  
     - ⏱️ Registrar ponto de colaboradores  
-    - 🤖 Oferecer suporte via chatbot           
+    - 🤖  Oferecer suporte via chatbot           
     - 💡 Receber sugestões de melhoria  
 
     Nosso objetivo é centralizar todas as informações operacionais em um único ambiente.
