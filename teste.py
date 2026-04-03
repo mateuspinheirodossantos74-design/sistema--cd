@@ -1,13 +1,7 @@
 import mysql.connector
 import bcrypt
 
-conn = mysql.connector.connect(
-    host="gondola.proxy.rlwy.net",
-    user="root",
-    password="NWyoLjEbDJydymKDvQHxQhzNwdJkAMuH",
-    database="railway",
-    port=25644
-)
+
 
 cursor = conn.cursor()
 
