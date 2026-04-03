@@ -1,13 +1,4 @@
-import mysql.connector
 
-# Conexão com o banco
-conn = mysql.connector.connect(
-    host="gondola.proxy.rlwy.net",
-    user="root",
-    password="NWyoLjEbDJydymKDvQHxQhzNwdJkAMuH",
-    database="railway",
-    port=25644
-)
 cursor = conn.cursor()
 
 # Criação da tabela log_acessos
