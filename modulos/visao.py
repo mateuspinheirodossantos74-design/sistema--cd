@@ -15,22 +15,20 @@ IMAGE_PATH = os.path.join("imagens", "2.png")
 def carregar_dados():
 
     conn = conectar()
-    query = "SELECT * FROM base_operacional"
-    df = pd.read_sql(query, conn)
+    df = pd.read_sql("SELECT * FROM base_operacional", conn)
     conn.close()
 
-    # Padronizar colunas texto
     for col in ["setor", "demanda"]:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip()
 
-    # Converter data
     if "data_limite_expedicao" in df.columns:
         df["data_limite_expedicao"] = pd.to_datetime(
             df["data_limite_expedicao"], errors="coerce"
         )
 
     return df
+
 
 # ==========================
 # RENDER
@@ -39,7 +37,6 @@ def render():
 
     st_autorefresh(interval=600000, key="auto_refresh_visao")
 
-    # RELÓGIO
     components.html(
         """
         <div id="clock" style="
@@ -74,9 +71,6 @@ def render():
         st.warning("⏳ Banco de dados indisponível ou sem dados.")
         st.stop()
 
-    # ==========================
-    # ATUALIZAR
-    # ==========================
     if st.sidebar.button("🔄 Atualizar Dados"):
         st.cache_data.clear()
         st.rerun()
@@ -96,7 +90,7 @@ def render():
         st.stop()
 
     # ==========================
-    # FILTRO DATA (CORRIGIDO)
+    # FILTRO DATA (CORREÇÃO FINAL)
     # ==========================
     df = df.dropna(subset=["data_limite_expedicao"])
 
@@ -110,17 +104,20 @@ def render():
         max_value=data_max
     )
 
-    if isinstance(datas, tuple) and len(datas) == 2:
-        data_inicio, data_fim = datas
-    elif datas:
+    # 🔥 CORREÇÃO DEFINITIVA
+    if isinstance(datas, (list, tuple)):
+        data_inicio = datas[0]
+        data_fim = datas[-1]
+    else:
         data_inicio = datas
         data_fim = datas
-    else:
-        st.warning("Selecione uma data válida")
-        st.stop()
 
-    data_inicio = pd.to_datetime(data_inicio)
-    data_fim = pd.to_datetime(data_fim)
+    data_inicio = pd.to_datetime(str(data_inicio))
+    data_fim = pd.to_datetime(str(data_fim))
+
+    df["data_limite_expedicao"] = pd.to_datetime(
+        df["data_limite_expedicao"], errors="coerce"
+    )
 
     df = df[
         (df["data_limite_expedicao"] >= data_inicio) &
@@ -149,7 +146,7 @@ def render():
         )
 
     # ==========================
-    # FILTROS DEMANDA (CORRIGIDO)
+    # FILTROS DEMANDA
     # ==========================
     demanda_lista = ["— Nenhuma seleção —"] + sorted(df["demanda"].dropna().unique().tolist())
 
@@ -225,3 +222,28 @@ def render():
         card(cols[i], status, res_par.get(status, 0), status_colors[status])
 
     card(cols[4], "Total Geral", df_par[qtd_col].sum(), "black")
+
+    # ==========================
+    # AUDIT (DE VOLTA)
+    # ==========================
+    st.markdown("<h2 style='text-align:center;font-size:34px;font-weight:800;'>AUDIT</h2>", unsafe_allow_html=True)
+
+    if df_salao.empty or "audit" not in df_salao.columns:
+        st.info("Sem dados de AUDIT.")
+    else:
+        df_audit = df_salao.groupby("audit")[qtd_col].sum().reset_index()
+        total = df_audit[qtd_col].sum()
+
+        cols = st.columns(len(df_audit))
+
+        for i, row in df_audit.iterrows():
+            pct = (row[qtd_col] / total * 100) if total else 0
+
+            card(
+                cols[i],
+                str(row["audit"]),
+                row[qtd_col],
+                "blue",
+                subtitle=f"{pct:.1f}%",
+                size="small"
+            )
