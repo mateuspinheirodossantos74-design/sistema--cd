@@ -6,8 +6,7 @@ import streamlit.components.v1 as components
 from modulos.conexao import conectar
 import os
 
-IMAGE_PATH = r"C:\Users\2960007532\Documents\Automacao\2.png"
-
+IMAGE_PATH = os.path.join("imagens", "2.png")
 
 # ==========================
 # CARREGAR DADOS
@@ -20,7 +19,12 @@ def carregar_dados():
     df = pd.read_sql(query, conn)
     conn.close()
 
-    # Converter data corretamente
+    # Padronizar colunas texto
+    for col in ["setor", "demanda"]:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
+
+    # Converter data
     if "data_limite_expedicao" in df.columns:
         df["data_limite_expedicao"] = pd.to_datetime(
             df["data_limite_expedicao"], errors="coerce"
@@ -28,20 +32,14 @@ def carregar_dados():
 
     return df
 
-
 # ==========================
 # RENDER
 # ==========================
 def render():
 
-    # ==========================
-    # AUTO REFRESH
-    # ==========================
     st_autorefresh(interval=600000, key="auto_refresh_visao")
 
-    # ==========================
     # RELÓGIO
-    # ==========================
     components.html(
         """
         <div id="clock" style="
@@ -55,7 +53,6 @@ def render():
             background-color: rgba(0,0,0,0.25);
             color: white;
             z-index: 9999;
-            font-family: Arial, sans-serif;
         ">--:--:--</div>
 
         <script>
@@ -71,24 +68,6 @@ def render():
         height=80
     )
 
-    # ==========================
-    # ESTILO
-    # ==========================
-    st.markdown(
-        """
-        <style>
-        .block-container {
-            padding-top: 1.2rem;
-            padding-bottom: 0.5rem;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # ==========================
-    # CARREGAR DADOS
-    # ==========================
     df = carregar_dados()
 
     if df is None or df.empty:
@@ -96,7 +75,7 @@ def render():
         st.stop()
 
     # ==========================
-    # SIDEBAR
+    # ATUALIZAR
     # ==========================
     if st.sidebar.button("🔄 Atualizar Dados"):
         st.cache_data.clear()
@@ -107,7 +86,7 @@ def render():
     # ==========================
     st.sidebar.subheader("Filtro por Setor")
 
-    setores = df["setor"].dropna().unique().tolist()
+    setores = sorted(df["setor"].dropna().unique().tolist())
     setores_sel = st.sidebar.multiselect("Setor:", setores, default=setores)
 
     df = df[df["setor"].isin(setores_sel)]
@@ -117,8 +96,10 @@ def render():
         st.stop()
 
     # ==========================
-    # FILTRO DATA
+    # FILTRO DATA (CORRIGIDO)
     # ==========================
+    df = df.dropna(subset=["data_limite_expedicao"])
+
     data_min = df["data_limite_expedicao"].min()
     data_max = df["data_limite_expedicao"].max()
 
@@ -131,13 +112,19 @@ def render():
 
     if isinstance(datas, tuple) and len(datas) == 2:
         data_inicio, data_fim = datas
-    else:
+    elif datas:
         data_inicio = datas
         data_fim = datas
+    else:
+        st.warning("Selecione uma data válida")
+        st.stop()
+
+    data_inicio = pd.to_datetime(data_inicio)
+    data_fim = pd.to_datetime(data_fim)
 
     df = df[
-        (df["data_limite_expedicao"] >= pd.to_datetime(data_inicio)) &
-        (df["data_limite_expedicao"] <= pd.to_datetime(data_fim))
+        (df["data_limite_expedicao"] >= data_inicio) &
+        (df["data_limite_expedicao"] <= data_fim)
     ]
 
     # ==========================
@@ -146,7 +133,7 @@ def render():
     col_l, col_c, col_r = st.columns([1.5, 3, 1.5])
 
     with col_l:
-        if IMAGE_PATH and os.path.exists(IMAGE_PATH):
+        if os.path.exists(IMAGE_PATH):
             st.image(Image.open(IMAGE_PATH), width=220)
 
         st.markdown(
@@ -162,9 +149,9 @@ def render():
         )
 
     # ==========================
-    # FILTROS SALÃO / P.A.R
+    # FILTROS DEMANDA (CORRIGIDO)
     # ==========================
-    demanda_lista = ["— Nenhuma seleção —"] + df["demanda"].dropna().unique().tolist()
+    demanda_lista = ["— Nenhuma seleção —"] + sorted(df["demanda"].dropna().unique().tolist())
 
     st.sidebar.subheader("Filtros — Salão")
     demanda_salao = st.sidebar.selectbox("Demanda Salão:", demanda_lista)
@@ -172,17 +159,8 @@ def render():
     st.sidebar.subheader("Filtros — P.A.R")
     demanda_par = st.sidebar.selectbox("Demanda (P.A.R):", demanda_lista)
 
-    df_salao = (
-        df[df["demanda"] == demanda_salao]
-        if demanda_salao != "— Nenhuma seleção —"
-        else df.iloc[0:0]
-    )
-
-    df_par = (
-        df[df["demanda"] == demanda_par]
-        if demanda_par != "— Nenhuma seleção —"
-        else df.iloc[0:0]
-    )
+    df_salao = df[df["demanda"] == demanda_salao] if demanda_salao != "— Nenhuma seleção —" else df.iloc[0:0]
+    df_par = df[df["demanda"] == demanda_par] if demanda_par != "— Nenhuma seleção —" else df.iloc[0:0]
 
     # ==========================
     # CÁLCULOS
@@ -247,36 +225,3 @@ def render():
         card(cols[i], status, res_par.get(status, 0), status_colors[status])
 
     card(cols[4], "Total Geral", df_par[qtd_col].sum(), "black")
-
-    # ==========================
-    # AUDIT
-    # ==========================
-    st.markdown(
-        "<h2 style='text-align:center;font-size:34px;font-weight:800;'>AUDIT</h2>",
-        unsafe_allow_html=True
-    )
-
-    if df_salao.empty or "audit" not in df_salao.columns:
-        st.info("Sem dados de AUDIT para a seleção atual.")
-    else:
-        df_audit = (
-            df_salao
-            .groupby("audit", dropna=False)[qtd_col]
-            .sum()
-            .reset_index()
-        )
-
-        total_audit = df_audit[qtd_col].sum()
-        cols = st.columns(len(df_audit))
-
-        for i, row in df_audit.iterrows():
-            pct = (row[qtd_col] / total_audit * 100) if total_audit else 0
-
-            card(
-                cols[i],
-                str(row["audit"]) if pd.notna(row["audit"]) else "Sem Audit",
-                row[qtd_col],
-                "blue",
-                subtitle=f"{pct:.1f}%",
-                size="small"
-            )
