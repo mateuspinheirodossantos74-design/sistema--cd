@@ -70,7 +70,6 @@ def adicionar_background():
             margin-top:120px;
         }}
 
-        /* 🔥 TABS */
         .stTabs [data-baseweb="tab"] {{
             color: white;
             font-size: 18px;
@@ -82,7 +81,6 @@ def adicionar_background():
             border-bottom: 3px solid white;
         }}
 
-        /* 🔥 LABELS (Usuário / Senha) */
         label {{
             color: white !important;
             font-weight: bold;
@@ -127,6 +125,7 @@ def validar_login(usuario, senha):
 
         if primeiro_acesso:
             st.session_state.trocar_senha_obrigatorio = True
+            st.rerun()  # 🔥 AJUSTE AQUI
             return "primeiro_acesso"
 
         st.session_state.logado = True
@@ -220,7 +219,6 @@ def render():
     else:
         abas = st.tabs(["🔐 Login", "🔑 Trocar senha"])
 
-        # LOGIN
         with abas[0]:
             usuario = st.text_input("Usuário")
             senha = st.text_input("Senha", type="password")
@@ -235,11 +233,10 @@ def render():
                     st.success(f"Bem-vindo {st.session_state.nome_usuario}")
                     st.rerun()
                 elif resultado == "primeiro_acesso":
-                    st.warning("Primeiro acesso detectado")
+                    pass  # já tratado pelo rerun automático
                 else:
                     st.error("Usuário ou senha inválidos")
 
-        # TROCAR SENHA
         with abas[1]:
             usuario = st.text_input("Usuário troca")
             senha_atual = st.text_input("Senha atual", type="password")
