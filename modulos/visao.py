@@ -90,12 +90,13 @@ def render():
         st.stop()
 
     # ==========================
-    # FILTRO DATA (CORREÇÃO FINAL)
+    # FILTRO DATA (CORRIGIDO)
     # ==========================
     df = df.dropna(subset=["data_limite_expedicao"])
 
-    data_min = df["data_limite_expedicao"].min()
-    data_max = df["data_limite_expedicao"].max()
+    # ✅ CORREÇÃO AQUI
+    data_min = df["data_limite_expedicao"].min().date()
+    data_max = df["data_limite_expedicao"].max().date()
 
     datas = st.sidebar.date_input(
         "Data Limite Expedição:",
@@ -104,7 +105,6 @@ def render():
         max_value=data_max
     )
 
-    # 🔥 CORREÇÃO DEFINITIVA
     if isinstance(datas, (list, tuple)):
         data_inicio = datas[0]
         data_fim = datas[-1]
@@ -112,12 +112,9 @@ def render():
         data_inicio = datas
         data_fim = datas
 
-    data_inicio = pd.to_datetime(str(data_inicio))
-    data_fim = pd.to_datetime(str(data_fim))
-
-    df["data_limite_expedicao"] = pd.to_datetime(
-        df["data_limite_expedicao"], errors="coerce"
-    )
+    # ✅ CORREÇÃO AQUI
+    data_inicio = pd.to_datetime(data_inicio)
+    data_fim = pd.to_datetime(data_fim)
 
     df = df[
         (df["data_limite_expedicao"] >= data_inicio) &
@@ -224,7 +221,7 @@ def render():
     card(cols[4], "Total Geral", df_par[qtd_col].sum(), "black")
 
     # ==========================
-    # AUDIT (DE VOLTA)
+    # AUDIT
     # ==========================
     st.markdown("<h2 style='text-align:center;font-size:34px;font-weight:800;'>AUDIT</h2>", unsafe_allow_html=True)
 
