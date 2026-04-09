@@ -1,5 +1,5 @@
 import streamlit as st
-from modulos import inicio, visao, tarefas, login, chatbot, gestao_usuarios
+from modulos import inicio, visao, tarefas, login, chatbot, gestao_usuarios, inserir_demanda
 
 st.set_page_config(
     page_title="Sistema Logístico",
@@ -48,6 +48,7 @@ with st.sidebar:
     # MENU PADRÃO
     menu = [
         "🏠 Início",
+        "📝 Inserir Demanda",
         "📋 Visão Geral",
         "📦 Tarefas",
         "📊 Dashboard",
@@ -86,6 +87,9 @@ if pagina == "🏠 Início":
 
 elif pagina == "📋 Visão Geral":
     visao.render()
+    
+elif pagina == "📝 Inserir Demanda":
+    inserir_demanda.render()
 
 elif pagina == "📦 Tarefas":
     tarefas.render()
