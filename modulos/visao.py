@@ -243,22 +243,44 @@ def render():
     # ==========================
     st.markdown("<h2 style='text-align:center;font-size:34px;font-weight:800;'>AUDIT</h2>", unsafe_allow_html=True)
 
-    if df_salao.empty or "audit" not in df_salao.columns:
-        st.info("Sem dados de AUDIT.")
-    else:
-        df_audit = df_salao.groupby("audit")[qtd_col].sum().reset_index()
-        total = df_audit[qtd_col].sum()
+if df_salao.empty or "audit_status" not in df_salao.columns:
+    st.info("Sem dados de AUDIT.")
+else:
+    # ==========================
+    # TRATAMENTO EM MEMÓRIA
+    # ==========================
+    df_salao["status_audit_tratado"] = (
+        df_salao["audit_status"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .replace({
+            "": "AUDIT INCOMPLETO",
+            "NONE": "AUDIT INCOMPLETO",
+            "NAN": "AUDIT INCOMPLETO",
+            "AUDIT_COMPLETE": "AUDIT COMPLETO",
+            "AUDIT_COMPLETE_WITH_VARIANCE": "AUDIT INCOMPLETO"
+        })
+    )
 
-        cols = st.columns(len(df_audit))
+    df_salao["status_audit_tratado"] = df_salao["status_audit_tratado"].fillna("AUDIT INCOMPLETO")
 
-        for i, row in df_audit.iterrows():
-            pct = (row[qtd_col] / total * 100) if total else 0
+    # ==========================
+    # AGRUPAMENTO
+    # ==========================
+    df_audit = df_salao.groupby("status_audit_tratado")[qtd_col].sum().reset_index()
+    total = df_audit[qtd_col].sum()
 
-            card(
-                cols[i],
-                str(row["audit"]),
-                row[qtd_col],
-                "blue",
-                subtitle=f"{pct:.1f}%",
-                size="small"
-            )
+    cols = st.columns(len(df_audit))
+
+    for i, row in df_audit.iterrows():
+        pct = (row[qtd_col] / total * 100) if total else 0
+
+        card(
+            cols[i],
+            str(row["status_audit_tratado"]),
+            row[qtd_col],
+            "blue",
+            subtitle=f"{pct:.1f}%",
+            size="small"
+        )
