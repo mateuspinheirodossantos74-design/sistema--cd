@@ -25,23 +25,18 @@ def carregar_dados():
 
     conn.close()
 
-    # Padronizar tipos para evitar erro no merge
+    # Padronizar tipos
     df["box"] = df["box"].astype(str).str.strip()
     df_setores["box"] = df_setores["box"].astype(str).str.strip()
 
     df["wave"] = df["wave"].astype(str).str.strip()
     df_demandas["wave"] = df_demandas["wave"].astype(str).str.strip()
 
-
-    # ==========================
-    # MERGES (SUBSTITUI FÓRMULAS DO EXCEL)
-    # ==========================
+    # MERGES
     df = df.merge(df_setores, on="box", how="left")
     df = df.merge(df_demandas, on="wave", how="left")
 
-    # ==========================
-    # TRATAMENTOS
-    # ==========================
+    # Datas
     if "data_limite_expedicao" in df.columns:
         df["data_limite_expedicao"] = pd.to_datetime(
             df["data_limite_expedicao"], errors="coerce"
@@ -96,7 +91,7 @@ def render():
         st.rerun()
 
     # ==========================
-    # FILTRO SETOR (AGORA VIA TABELA AUXILIAR)
+    # FILTRO SETOR
     # ==========================
     st.sidebar.subheader("Filtro por Setor")
 
@@ -161,7 +156,7 @@ def render():
         )
 
     # ==========================
-    # FILTRO DEMANDA (AGORA VIA TABELA AUXILIAR)
+    # FILTRO DEMANDA
     # ==========================
     demanda_lista = ["— Nenhuma seleção —"] + sorted(df["demanda"].dropna().unique().tolist())
 
@@ -243,44 +238,40 @@ def render():
     # ==========================
     st.markdown("<h2 style='text-align:center;font-size:34px;font-weight:800;'>AUDIT</h2>", unsafe_allow_html=True)
 
-if df_salao.empty or "audit_status" not in df_salao.columns:
-    st.info("Sem dados de AUDIT.")
-else:
-    # ==========================
-    # TRATAMENTO EM MEMÓRIA
-    # ==========================
-    df_salao["status_audit_tratado"] = (
-        df_salao["audit_status"]
-        .astype(str)
-        .str.strip()
-        .str.upper()
-        .replace({
-            "": "AUDIT INCOMPLETO",
-            "NONE": "AUDIT INCOMPLETO",
-            "NAN": "AUDIT INCOMPLETO",
-            "AUDIT_COMPLETE": "AUDIT COMPLETO",
-            "AUDIT_COMPLETE_WITH_VARIANCE": "AUDIT INCOMPLETO"
-        })
-    )
+    if df_salao.empty or "audit_status" not in df_salao.columns:
+        st.info("Sem dados de AUDIT.")
+    else:
+        df_salao = df_salao.copy()
 
-    df_salao["status_audit_tratado"] = df_salao["status_audit_tratado"].fillna("AUDIT INCOMPLETO")
-
-    # ==========================
-    # AGRUPAMENTO
-    # ==========================
-    df_audit = df_salao.groupby("status_audit_tratado")[qtd_col].sum().reset_index()
-    total = df_audit[qtd_col].sum()
-
-    cols = st.columns(len(df_audit))
-
-    for i, row in df_audit.iterrows():
-        pct = (row[qtd_col] / total * 100) if total else 0
-
-        card(
-            cols[i],
-            str(row["status_audit_tratado"]),
-            row[qtd_col],
-            "blue",
-            subtitle=f"{pct:.1f}%",
-            size="small"
+        df_salao["status_audit_tratado"] = (
+            df_salao["audit_status"]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+            .replace({
+                "": "AUDIT INCOMPLETO",
+                "NONE": "AUDIT INCOMPLETO",
+                "NAN": "AUDIT INCOMPLETO",
+                "AUDIT_COMPLETE": "AUDIT COMPLETO",
+                "AUDIT_COMPLETE_WITH_VARIANCE": "AUDIT INCOMPLETO"
+            })
         )
+
+        df_salao["status_audit_tratado"] = df_salao["status_audit_tratado"].fillna("AUDIT INCOMPLETO")
+
+        df_audit = df_salao.groupby("status_audit_tratado")[qtd_col].sum().reset_index()
+        total = df_audit[qtd_col].sum()
+
+        cols = st.columns(len(df_audit))
+
+        for i, row in df_audit.iterrows():
+            pct = (row[qtd_col] / total * 100) if total else 0
+
+            card(
+                cols[i],
+                str(row["status_audit_tratado"]),
+                row[qtd_col],
+                "blue",
+                subtitle=f"{pct:.1f}%",
+                size="small"
+            )
