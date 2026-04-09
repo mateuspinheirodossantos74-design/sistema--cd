@@ -25,6 +25,14 @@ def carregar_dados():
 
     conn.close()
 
+    # Padronizar tipos para evitar erro no merge
+    df["box"] = df["box"].astype(str).str.strip()
+    df_setores["box"] = df_setores["box"].astype(str).str.strip()
+
+    df["wave"] = df["wave"].astype(str).str.strip()
+    df_demandas["wave"] = df_demandas["wave"].astype(str).str.strip()
+
+
     # ==========================
     # MERGES (SUBSTITUI FÓRMULAS DO EXCEL)
     # ==========================
