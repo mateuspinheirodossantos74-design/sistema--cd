@@ -9,26 +9,7 @@ import os
 IMAGE_PATH = os.path.join("imagens", "2.png")
 
 # ==========================
-# UTILITÁRIOS DE SEGURANÇA
-# ==========================
-def ensure_col(df, col, default=""):
-    if col not in df.columns:
-        df[col] = default
-    return df
-
-
-def safe_group_sum(df, group_col, sum_col):
-    if group_col not in df.columns or sum_col not in df.columns:
-        return pd.Series(dtype="int64")
-    return df.groupby(group_col)[sum_col].sum()
-
-
-def safe_sum(df, col):
-    return df[col].sum() if col in df.columns else 0
-
-
-# ==========================
-# CARREGAMENTO OTIMIZADO
+# CARREGAR DADOS (BLINDADO)
 # ==========================
 @st.cache_data(ttl=300)
 def carregar_dados():
@@ -43,32 +24,54 @@ def carregar_dados():
         conn.close()
 
     except Exception as e:
-        st.error(f"Erro no banco: {e}")
+        st.error(f"Erro ao conectar no banco: {e}")
         return pd.DataFrame()
 
     # ==========================
-    # NORMALIZAÇÃO LEVE (PERFORMANCE)
+    # NORMALIZAÇÃO SEGURA
     # ==========================
-    df["box"] = df.get("box", "").astype(str).str.strip()
-    df["wave"] = df.get("wave", "").astype(str).str.strip()
+    for col in ["box"]:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
 
-    df_setores["box"] = df_setores.get("box", "").astype(str).str.strip()
-    df_demandas["wave"] = df_demandas.get("wave", "").astype(str).str.strip()
+    for col in ["box"]:
+        if col in df_setores.columns:
+            df_setores[col] = df_setores[col].astype(str).str.strip()
+
+    for col in ["wave"]:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
+
+    for col in ["wave"]:
+        if col in df_demandas.columns:
+            df_demandas[col] = df_demandas[col].astype(str).str.strip()
 
     # ==========================
-    # MERGE OTIMIZADO (MENOS CÓPIAS)
+    # MERGE SEGURO
     # ==========================
-    df = df.merge(df_setores, on="box", how="left", copy=False)
-    df = df.merge(df_demandas, on="wave", how="left", copy=False)
+    if not df_setores.empty:
+        df = df.merge(df_setores, on="box", how="left")
+
+    if not df_demandas.empty:
+        df = df.merge(df_demandas, on="wave", how="left")
 
     # ==========================
-    # GARANTIA DE COLUNAS CRÍTICAS
+    # GARANTIA DE COLUNAS (SEM QUEBRAR)
     # ==========================
-    df = ensure_col(df, "setor", "SEM_SETOR")
-    df = ensure_col(df, "demanda", "SEM_DEMANDA")
+    if "setor" not in df.columns:
+        df["setor"] = "SEM_SETOR"
 
+    if "demanda" not in df.columns:
+        df["demanda"] = "SEM_DEMANDA"
+
+    # ==========================
+    # DATAS SEGURAS
+    # ==========================
     if "data_limite_expedicao" in df.columns:
-        df["data_limite_expedicao"] = pd.to_datetime(df["data_limite_expedicao"], errors="coerce")
+        df["data_limite_expedicao"] = pd.to_datetime(
+            df["data_limite_expedicao"],
+            errors="coerce"
+        )
 
     return df
 
@@ -96,10 +99,13 @@ def render():
         ">--:--:--</div>
 
         <script>
-            setInterval(() => {
+            function updateClock() {
+                const now = new Date();
                 document.getElementById("clock").innerHTML =
-                    new Date().toLocaleTimeString('pt-BR');
-            }, 1000);
+                    now.toLocaleTimeString('pt-BR');
+            }
+            setInterval(updateClock, 1000);
+            updateClock();
         </script>
         """,
         height=80
@@ -107,32 +113,38 @@ def render():
 
     df = carregar_dados()
 
-    if df.empty:
-        st.warning("Banco vazio ou indisponível.")
+    # ==========================
+    # PROTEÇÃO BASE
+    # ==========================
+    if df is None or df.empty:
+        st.warning("⏳ Banco de dados indisponível ou vazio.")
         st.stop()
 
+    if st.sidebar.button("🔄 Atualizar Dados"):
+        st.cache_data.clear()
+        st.rerun()
+
     # ==========================
-    # FILTRO SETOR (ROBUSTO)
+    # FILTRO SETOR (SEGURO)
     # ==========================
     st.sidebar.subheader("Filtro por Setor")
 
-    setores = df["setor"].dropna().unique().tolist()
-    setores.sort()
-
+    setores = sorted(df["setor"].dropna().unique().tolist()) if "setor" in df.columns else []
     setores_sel = st.sidebar.multiselect("Setor:", setores, default=setores)
 
     if setores_sel:
         df = df[df["setor"].isin(setores_sel)]
 
     if df.empty:
-        st.warning("Sem dados após filtro de setor.")
+        st.warning("Nenhum dado após filtro de setor.")
         st.stop()
 
     # ==========================
-    # FILTRO DATA (OTIMIZADO)
+    # FILTRO DATA (SEGURO)
     # ==========================
-    if "data_limite_expedicao" in df.columns:
-        df = df.dropna(subset=["data_limite_expedicao"])
+    df = df.dropna(subset=["data_limite_expedicao"]) if "data_limite_expedicao" in df.columns else df
+
+    if not df.empty and "data_limite_expedicao" in df.columns:
 
         data_min = df["data_limite_expedicao"].min().date()
         data_max = df["data_limite_expedicao"].max().date()
@@ -144,39 +156,75 @@ def render():
             max_value=data_max
         )
 
-        data_inicio, data_fim = datas if isinstance(datas, (list, tuple)) else (datas, datas)
+        if isinstance(datas, (list, tuple)):
+            data_inicio = datas[0]
+            data_fim = datas[-1]
+        else:
+            data_inicio = data_fim = datas
+
+        data_inicio = pd.to_datetime(data_inicio)
+        data_fim = pd.to_datetime(data_fim)
 
         df = df[
-            (df["data_limite_expedicao"] >= pd.to_datetime(data_inicio)) &
-            (df["data_limite_expedicao"] <= pd.to_datetime(data_fim))
+            (df["data_limite_expedicao"] >= data_inicio) &
+            (df["data_limite_expedicao"] <= data_fim)
         ]
 
-    base = df  # referência única (evita cópias inúteis)
+    # ==========================
+    # BASE SEGURA (NÃO ALTERA LÓGICA)
+    # ==========================
+    base_df = df.copy()
 
     # ==========================
-    # DEMANDA (MESMA LÓGICA)
+    # DEMANDAS (SEM MUDAR LÓGICA)
     # ==========================
-    st.sidebar.subheader("Filtros — Salão / P.A.R")
+    st.sidebar.subheader("Filtros — Salão")
+    st.sidebar.subheader("Filtros — P.A.R")
 
-    demandas = ["— Nenhuma seleção —"] + sorted(base["demanda"].dropna().unique().tolist())
+    demanda_lista = ["— Nenhuma seleção —"] + sorted(base_df["demanda"].dropna().unique().tolist()) if "demanda" in base_df.columns else ["— Nenhuma seleção —"]
 
-    demanda_salao = st.sidebar.selectbox("Demanda Salão:", demandas)
-    demanda_par = st.sidebar.selectbox("Demanda P.A.R:", demandas)
+    demanda_salao = st.sidebar.selectbox("Demanda Salão:", demanda_lista)
+    demanda_par = st.sidebar.selectbox("Demanda (P.A.R):", demanda_lista)
 
-    df_salao = base if demanda_salao == "— Nenhuma seleção —" else base[base["demanda"] == demanda_salao]
-    df_par = base if demanda_par == "— Nenhuma seleção —" else base[base["demanda"] == demanda_par]
+    if demanda_salao != "— Nenhuma seleção —":
+        df_salao = base_df[base_df["demanda"] == demanda_salao]
+    else:
+        df_salao = base_df.copy()
+
+    if demanda_par != "— Nenhuma seleção —":
+        df_par = base_df[base_df["demanda"] == demanda_par]
+    else:
+        df_par = base_df.copy()
 
     # ==========================
-    # FUNÇÕES CORE
+    # PROTEÇÃO FINAL DF
     # ==========================
+    def safe_sum(df, col):
+        return df[col].sum() if col in df.columns else 0
+
     status_col = "status_olpn"
     qtd_col = "qtde_pecas_item"
+
+    def resumo_status(dataframe):
+        if status_col not in dataframe.columns or qtd_col not in dataframe.columns:
+            return pd.Series(dtype="int64")
+        return dataframe.groupby(status_col)[qtd_col].sum()
 
     def fmt(v):
         return f"{int(v):,}".replace(",", ".")
 
+    status_colors = {
+        "Created": "red",
+        "Packed": "gold",
+        "Loaded": "green",
+        "Shipped": "black"
+    }
+
     def card(col, titulo, valor, cor, subtitle=None, size="medium"):
-        sizes = {"small": ("22px", "52px", "6px"), "medium": ("30px", "72px", "14px")}
+        sizes = {
+            "small": ("22px", "52px", "6px"),
+            "medium": ("30px", "72px", "14px"),
+        }
         t, v, p = sizes[size]
 
         col.markdown(
@@ -185,10 +233,9 @@ def render():
             border-radius:18px;text-align:center;
             box-shadow:0 6px 18px rgba(0,0,0,0.18);">
                 <h3 style="font-size:{t};margin:0;">{titulo}</h3>
-                <p style="font-size:{v};color:{cor};font-weight:800;margin:6px 0;">
-                    {fmt(valor)}
-                </p>
-                {f"<p style='font-size:18px;font-weight:600;'>{subtitle}</p>" if subtitle else ""}
+                <p style="font-size:{v};color:{cor};
+                font-weight:800;margin:6px 0;">{fmt(valor)}</p>
+                {f"<p style='font-size:22px;font-weight:600;'>{subtitle}</p>" if subtitle else ""}
             </div>
             """,
             unsafe_allow_html=True
@@ -197,64 +244,66 @@ def render():
     # ==========================
     # SALÃO
     # ==========================
-    res_salao = safe_group_sum(df_salao, status_col, qtd_col)
+    res_salao = resumo_status(df_salao)
     cols = st.columns(5)
 
-    for i, status in enumerate(["Created", "Packed", "Loaded", "Shipped"]):
-        card(cols[i], status, res_salao.get(status, 0), "black")
+    for i, status in enumerate(status_colors):
+        card(cols[i], status, res_salao.get(status, 0), status_colors[status])
 
-    card(cols[4], "Total", safe_sum(df_salao, qtd_col), "black")
+    card(cols[4], "Total Geral", safe_sum(df_salao, qtd_col), "black")
 
     # ==========================
     # P.A.R
     # ==========================
-    st.markdown("## P.A.R")
+    st.markdown("<h2 style='text-align:center;font-size:34px;font-weight:800;'>P.A.R</h2>", unsafe_allow_html=True)
 
-    res_par = safe_group_sum(df_par, status_col, qtd_col)
+    res_par = resumo_status(df_par)
     cols = st.columns(5)
 
-    for i, status in enumerate(["Created", "Packed", "Loaded", "Shipped"]):
-        card(cols[i], status, res_par.get(status, 0), "black")
+    for i, status in enumerate(status_colors):
+        card(cols[i], status, res_par.get(status, 0), status_colors[status])
 
-    card(cols[4], "Total", safe_sum(df_par, qtd_col), "black")
+    card(cols[4], "Total Geral", safe_sum(df_par, qtd_col), "black")
 
     # ==========================
-    # AUDIT ULTRA ESTÁVEL
+    # AUDIT (BLINDADO)
     # ==========================
-    st.markdown("## AUDIT")
+    st.markdown("<h2 style='text-align:center;font-size:34px;font-weight:800;'>AUDIT</h2>", unsafe_allow_html=True)
 
-    if "audit_status" not in df_salao.columns:
-        st.info("Sem AUDIT.")
+    audit_base = df_salao.copy()
+
+    if "audit_status" not in audit_base.columns:
+        st.info("Sem dados de AUDIT.")
         return
 
-    audit = df_salao.copy()
+    audit_base["status_audit_tratado"] = (
+        audit_base["audit_status"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .replace({
+            "": "AUDIT INCOMPLETO",
+            "NONE": "AUDIT INCOMPLETO",
+            "NAN": "AUDIT INCOMPLETO",
+            "AUDIT_COMPLETE": "AUDIT COMPLETO",
+            "AUDIT_COMPLETE_WITH_VARIANCE": "AUDIT INCOMPLETO"
+        })
+    ).fillna("AUDIT INCOMPLETO")
 
-    audit["audit_status"] = audit["audit_status"].astype(str).str.upper().str.strip()
-
-    audit_map = {
-        "AUDIT_COMPLETE": "COMPLETO",
-        "AUDIT_COMPLETE_WITH_VARIANCE": "INCOMPLETO",
-        "": "INCOMPLETO",
-        "NAN": "INCOMPLETO",
-        "NONE": "INCOMPLETO"
-    }
-
-    audit["audit_status_tratado"] = audit["audit_status"].replace(audit_map).fillna("INCOMPLETO")
-
-    df_audit = safe_group_sum(audit, "audit_status_tratado", qtd_col).reset_index()
+    df_audit = audit_base.groupby("status_audit_tratado")[qtd_col].sum().reset_index() if qtd_col in audit_base.columns else pd.DataFrame()
 
     total = df_audit[qtd_col].sum() if not df_audit.empty else 0
 
-    cols = st.columns(max(len(df_audit), 1))
+    cols = st.columns(len(df_audit) if len(df_audit) > 0 else 1)
 
     for i, row in df_audit.iterrows():
         pct = (row[qtd_col] / total * 100) if total else 0
 
         card(
             cols[i],
-            row["audit_status_tratado"],
+            str(row["status_audit_tratado"]),
             row[qtd_col],
-            "black",
+            "blue",
             subtitle=f"{pct:.1f}%",
             size="small"
         )
