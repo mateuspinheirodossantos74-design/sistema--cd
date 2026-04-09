@@ -15,13 +15,25 @@ IMAGE_PATH = os.path.join("imagens", "2.png")
 def carregar_dados():
 
     conn = conectar()
+
+    # Base principal
     df = pd.read_sql("SELECT * FROM base_operacional", conn)
+
+    # Tabelas auxiliares
+    df_setores = pd.read_sql("SELECT DISTINCT box, setor FROM mapa_box_setor", conn)
+    df_demandas = pd.read_sql("SELECT DISTINCT wave, demanda FROM demanda", conn)
+
     conn.close()
 
-    for col in ["setor", "demanda"]:
-        if col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
+    # ==========================
+    # MERGES (SUBSTITUI FÓRMULAS DO EXCEL)
+    # ==========================
+    df = df.merge(df_setores, on="box", how="left")
+    df = df.merge(df_demandas, on="wave", how="left")
 
+    # ==========================
+    # TRATAMENTOS
+    # ==========================
     if "data_limite_expedicao" in df.columns:
         df["data_limite_expedicao"] = pd.to_datetime(
             df["data_limite_expedicao"], errors="coerce"
@@ -76,7 +88,7 @@ def render():
         st.rerun()
 
     # ==========================
-    # FILTRO SETOR
+    # FILTRO SETOR (AGORA VIA TABELA AUXILIAR)
     # ==========================
     st.sidebar.subheader("Filtro por Setor")
 
@@ -90,11 +102,10 @@ def render():
         st.stop()
 
     # ==========================
-    # FILTRO DATA (CORRIGIDO)
+    # FILTRO DATA
     # ==========================
     df = df.dropna(subset=["data_limite_expedicao"])
 
-    # ✅ CORREÇÃO AQUI
     data_min = df["data_limite_expedicao"].min().date()
     data_max = df["data_limite_expedicao"].max().date()
 
@@ -112,7 +123,6 @@ def render():
         data_inicio = datas
         data_fim = datas
 
-    # ✅ CORREÇÃO AQUI
     data_inicio = pd.to_datetime(data_inicio)
     data_fim = pd.to_datetime(data_fim)
 
@@ -143,7 +153,7 @@ def render():
         )
 
     # ==========================
-    # FILTROS DEMANDA
+    # FILTRO DEMANDA (AGORA VIA TABELA AUXILIAR)
     # ==========================
     demanda_lista = ["— Nenhuma seleção —"] + sorted(df["demanda"].dropna().unique().tolist())
 
