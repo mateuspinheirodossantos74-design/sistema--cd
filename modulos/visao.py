@@ -90,13 +90,12 @@ def render():
         st.stop()
 
     # ==========================
-    # FILTROS (IGUAL)
+    # FILTROS
     # ==========================
     if st.sidebar.button("🔄 Atualizar Dados"):
         st.cache_data.clear()
         st.rerun()
 
-    # SETOR
     st.sidebar.subheader("Filtro por Setor")
 
     setores = sorted(df["setor"].dropna().unique().tolist()) if "setor" in df.columns else []
@@ -109,7 +108,6 @@ def render():
         st.warning("Nenhum dado após filtro de setor.")
         st.stop()
 
-    # DATA
     df = df.dropna(subset=["data_limite_expedicao"])
 
     data_min = df["data_limite_expedicao"].min().date()
@@ -136,7 +134,9 @@ def render():
         st.warning("Nenhum dado após filtro de data.")
         st.stop()
 
+    # ==========================
     # DEMANDA
+    # ==========================
     demanda_lista = ["— Nenhuma seleção —"] + sorted(
         df_demandas["demanda"].dropna().unique().tolist()
     ) if "demanda" in df_demandas.columns else ["— Nenhuma seleção —"]
@@ -161,6 +161,22 @@ def render():
 
     with col_c:
         st.markdown("<h1 style='text-align:center;'>SALÃO</h1>", unsafe_allow_html=True)
+
+        # 🔥 DATA LIMITE EXPEDIÇÃO (NOVO - VISUAL)
+        st.markdown(
+            f"""
+            <div style="text-align:center;margin-top:5px;">
+                <span style="
+                    font-size:16px;
+                    font-weight:600;
+                    color:gray;
+                ">
+                    Data Limite Expedição: {data_inicio.strftime('%d/%m/%Y')} → {data_fim.strftime('%d/%m/%Y')}
+                </span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
     st.divider()
 
@@ -196,7 +212,7 @@ def render():
     # SALÃO
     # ==========================
     def resumo(df_local):
-        return df_local.groupby(status_col)[qtd_col].sum()
+        return df_local.groupby("status_olpn")["qtde_pecas_item"].sum()
 
     res_salao = resumo(df_salao)
     cols = st.columns(5)
@@ -211,10 +227,10 @@ def render():
     for i, status in enumerate(status_colors):
         card(cols[i], status, res_salao.get(status, 0), status_colors[status])
 
-    card(cols[4], "Total Geral", df_salao[qtd_col].sum(), "black")
+    card(cols[4], "Total Geral", df_salao["qtde_pecas_item"].sum(), "black")
 
     # ==========================
-    # P.A.R (CENTRALIZADO)
+    # P.A.R
     # ==========================
     st.divider()
     st.markdown("<h1 style='text-align:center;'>P.A.R</h1>", unsafe_allow_html=True)
@@ -225,10 +241,10 @@ def render():
     for i, status in enumerate(status_colors):
         card(cols[i], status, res_par.get(status, 0), status_colors[status])
 
-    card(cols[4], "Total Geral", df_par[qtd_col].sum(), "black")
+    card(cols[4], "Total Geral", df_par["qtde_pecas_item"].sum(), "black")
 
     # ==========================
-    # AUDIT (CENTRALIZADO)
+    # AUDIT
     # ==========================
     st.divider()
     st.markdown("<h1 style='text-align:center;'>AUDIT</h1>", unsafe_allow_html=True)
@@ -254,19 +270,19 @@ def render():
         .fillna("AUDIT INCOMPLETO")
     )
 
-    df_group = df_audit.groupby("status_audit_tratado")[qtd_col].sum().reset_index()
+    df_group = df_audit.groupby("status_audit_tratado")["qtde_pecas_item"].sum().reset_index()
 
-    total = df_group[qtd_col].sum()
+    total = df_group["qtde_pecas_item"].sum()
 
     cols = st.columns(len(df_group))
 
     for i, row in df_group.iterrows():
-        pct = (row[qtd_col] / total * 100) if total else 0
+        pct = (row["qtde_pecas_item"] / total * 100) if total else 0
 
         card(
             cols[i],
             row["status_audit_tratado"],
-            row[qtd_col],
+            row["qtde_pecas_item"],
             "blue",
             subtitle=f"{pct:.1f}%",
             size="small"
