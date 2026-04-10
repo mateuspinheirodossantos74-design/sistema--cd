@@ -165,11 +165,11 @@ def render():
         # 🔥 DATA LIMITE EXPEDIÇÃO (NOVO - VISUAL)
         st.markdown(
             f"""
-            <div style="text-align:center;margin-top:5px;">
+            <div style="text-align:left;margin-top:5px;">
                 <span style="
-                    font-size:16px;
-                    font-weight:600;
-                    color:gray;
+                    font-size:22px;
+                    font-weight:900;
+                    color:black;
                 ">
                     Data Limite Expedição: {data_inicio.strftime('%d/%m/%Y')} → {data_fim.strftime('%d/%m/%Y')}
                 </span>
