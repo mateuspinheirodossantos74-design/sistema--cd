@@ -10,7 +10,7 @@ IMAGE_PATH = os.path.join("imagens", "2.png")
 
 
 # ==========================
-# CARREGAR DADOS (BLINDADO)
+# CARREGAR DADOS (SEM MEXER)
 # ==========================
 @st.cache_data(ttl=300)
 def carregar_dados():
@@ -177,7 +177,9 @@ def render():
     def fmt(v):
         return f"{int(v):,}".replace(",", ".")
 
-    # 🔥 CARD (AGORA COM TÍTULO CENTRALIZADO)
+    # ==========================
+    # CARD (SÓ TITULO AJUSTADO)
+    # ==========================
     def card(col, titulo, valor, cor, subtitle=None, size="medium"):
         sizes = {
             "small": ("22px", "52px", "6px"),
@@ -194,9 +196,12 @@ def render():
             <h3 style="
                 font-size:{t};
                 margin:0;
+                display:flex;
+                justify-content:center;
+                align-items:center;
                 text-align:center;
-                width:100%;
                 font-weight:800;
+                width:100%;
             ">{titulo}</h3>
 
             <p style="font-size:{v};color:{cor};
