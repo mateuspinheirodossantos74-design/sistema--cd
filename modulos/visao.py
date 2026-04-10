@@ -55,6 +55,9 @@ def render():
 
     st_autorefresh(interval=600000, key="auto_refresh_visao")
 
+    # ==========================
+    # CLOCK
+    # ==========================
     components.html("""
     <div id="clock" style="
         position: fixed;
@@ -86,13 +89,14 @@ def render():
         st.warning("⏳ Sem dados disponíveis.")
         st.stop()
 
+    # ==========================
+    # FILTROS (IGUAL)
+    # ==========================
     if st.sidebar.button("🔄 Atualizar Dados"):
         st.cache_data.clear()
         st.rerun()
 
-    # ==========================
-    # FILTRO SETOR
-    # ==========================
+    # SETOR
     st.sidebar.subheader("Filtro por Setor")
 
     setores = sorted(df["setor"].dropna().unique().tolist()) if "setor" in df.columns else []
@@ -105,14 +109,8 @@ def render():
         st.warning("Nenhum dado após filtro de setor.")
         st.stop()
 
-    # ==========================
-    # FILTRO DATA
-    # ==========================
+    # DATA
     df = df.dropna(subset=["data_limite_expedicao"])
-
-    if df.empty:
-        st.warning("Sem datas válidas.")
-        st.stop()
 
     data_min = df["data_limite_expedicao"].min().date()
     data_max = df["data_limite_expedicao"].max().date()
@@ -138,9 +136,7 @@ def render():
         st.warning("Nenhum dado após filtro de data.")
         st.stop()
 
-    # ==========================
     # DEMANDA
-    # ==========================
     demanda_lista = ["— Nenhuma seleção —"] + sorted(
         df_demandas["demanda"].dropna().unique().tolist()
     ) if "demanda" in df_demandas.columns else ["— Nenhuma seleção —"]
@@ -164,12 +160,12 @@ def render():
             st.image(Image.open(IMAGE_PATH), width=220)
 
     with col_c:
-        st.subheader("📦 SALÃO")
+        st.markdown("<h1 style='text-align:center;'>SALÃO</h1>", unsafe_allow_html=True)
 
     st.divider()
 
     # ==========================
-    # FUNÇÕES
+    # CARD
     # ==========================
     status_col = "status_olpn"
     qtd_col = "qtde_pecas_item"
@@ -177,9 +173,6 @@ def render():
     def fmt(v):
         return f"{int(v):,}".replace(",", ".")
 
-    # ==========================
-    # CARD (SÓ TITULO AJUSTADO)
-    # ==========================
     def card(col, titulo, valor, cor, subtitle=None, size="medium"):
         sizes = {
             "small": ("22px", "52px", "6px"),
@@ -192,22 +185,9 @@ def render():
         <div style="background:white;padding:{p};
         border-radius:18px;text-align:center;
         box-shadow:0 6px 18px rgba(0,0,0,0.18);">
-
-            <h3 style="
-                font-size:{t};
-                margin:0;
-                display:flex;
-                justify-content:center;
-                align-items:center;
-                text-align:center;
-                font-weight:800;
-                width:100%;
-            ">{titulo}</h3>
-
-            <p style="font-size:{v};color:{cor};
-            font-weight:800;margin:6px 0;">
+            <h3 style="font-size:{t};margin:0;">{titulo}</h3>
+            <p style="font-size:{v};color:{cor};font-weight:800;margin:6px 0;">
             {fmt(valor)}</p>
-
             {f"<p style='font-size:22px;font-weight:600;'>{subtitle}</p>" if subtitle else ""}
         </div>
         """, unsafe_allow_html=True)
@@ -234,10 +214,10 @@ def render():
     card(cols[4], "Total Geral", df_salao[qtd_col].sum(), "black")
 
     # ==========================
-    # P.A.R
+    # P.A.R (CENTRALIZADO)
     # ==========================
-    st.subheader("📦 P.A.R")
     st.divider()
+    st.markdown("<h1 style='text-align:center;'>P.A.R</h1>", unsafe_allow_html=True)
 
     res_par = resumo(df_par)
     cols = st.columns(5)
@@ -248,10 +228,10 @@ def render():
     card(cols[4], "Total Geral", df_par[qtd_col].sum(), "black")
 
     # ==========================
-    # AUDIT
+    # AUDIT (CENTRALIZADO)
     # ==========================
-    st.subheader("📊 AUDIT")
     st.divider()
+    st.markdown("<h1 style='text-align:center;'>AUDIT</h1>", unsafe_allow_html=True)
 
     if df_salao.empty or "audit_status" not in df_salao.columns:
         st.info("Sem dados de AUDIT.")
