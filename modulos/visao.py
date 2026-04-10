@@ -23,9 +23,6 @@ def carregar_dados():
 
     conn.close()
 
-    # ==========================
-    # PADRONIZAÇÃO FORTE (IMPORTANTE)
-    # ==========================
     for col in ["box", "wave"]:
         if col not in df.columns:
             df[col] = None
@@ -33,26 +30,20 @@ def carregar_dados():
     df["box"] = df["box"].astype(str).str.strip().str.upper()
     df["wave"] = df["wave"].astype(str).str.strip().str.upper()
 
-    # SETORES
     if not df_setores.empty:
         df_setores["box"] = df_setores["box"].astype(str).str.strip().str.upper()
         df = df.merge(df_setores, on="box", how="left")
     else:
         df["setor"] = None
 
-    # DEMANDAS
     if not df_demandas.empty:
         df_demandas["wave"] = df_demandas["wave"].astype(str).str.strip().str.upper()
         df = df.merge(df_demandas, on="wave", how="left")
     else:
         df["demanda"] = None
 
-    # DATA
     if "data_limite_expedicao" in df.columns:
-        df["data_limite_expedicao"] = pd.to_datetime(
-            df["data_limite_expedicao"],
-            errors="coerce"
-        )
+        df["data_limite_expedicao"] = pd.to_datetime(df["data_limite_expedicao"], errors="coerce")
 
     return df, df_demandas
 
@@ -64,36 +55,30 @@ def render():
 
     st_autorefresh(interval=600000, key="auto_refresh_visao")
 
-    # ==========================
-    # CLOCK FIXO
-    # ==========================
-    components.html(
-        """
-        <div id="clock" style="
-            position: fixed;
-            top: 18px;
-            right: 22px;
-            font-size: 34px;
-            font-weight: 900;
-            padding: 10px 18px;
-            border-radius: 14px;
-            background-color: rgba(0,0,0,0.25);
-            color: white;
-            z-index: 9999;
-        ">--:--:--</div>
+    components.html("""
+    <div id="clock" style="
+        position: fixed;
+        top: 18px;
+        right: 22px;
+        font-size: 34px;
+        font-weight: 900;
+        padding: 10px 18px;
+        border-radius: 14px;
+        background-color: rgba(0,0,0,0.25);
+        color: white;
+        z-index: 9999;
+    ">--:--:--</div>
 
-        <script>
-            function updateClock() {
-                const now = new Date();
-                document.getElementById("clock").innerHTML =
-                    now.toLocaleTimeString('pt-BR');
-            }
-            setInterval(updateClock, 1000);
-            updateClock();
-        </script>
-        """,
-        height=80
-    )
+    <script>
+        function updateClock() {
+            const now = new Date();
+            document.getElementById("clock").innerHTML =
+                now.toLocaleTimeString('pt-BR');
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
+    """, height=80)
 
     df, df_demandas = carregar_dados()
 
@@ -101,23 +86,16 @@ def render():
         st.warning("⏳ Sem dados disponíveis.")
         st.stop()
 
-    # ==========================
-    # ATUALIZAR
-    # ==========================
     if st.sidebar.button("🔄 Atualizar Dados"):
         st.cache_data.clear()
         st.rerun()
 
     # ==========================
-    # FILTRO SETOR (CORRIGIDO)
+    # FILTRO SETOR
     # ==========================
     st.sidebar.subheader("Filtro por Setor")
 
-    if "setor" in df.columns:
-        setores = sorted(df["setor"].dropna().unique().tolist())
-    else:
-        setores = []
-
+    setores = sorted(df["setor"].dropna().unique().tolist()) if "setor" in df.columns else []
     setores_sel = st.sidebar.multiselect("Setor:", setores, default=setores)
 
     if setores_sel and "setor" in df.columns:
@@ -161,7 +139,7 @@ def render():
         st.stop()
 
     # ==========================
-    # DEMANDA (GLOBAL LIMPA)
+    # DEMANDA
     # ==========================
     demanda_lista = ["— Nenhuma seleção —"] + sorted(
         df_demandas["demanda"].dropna().unique().tolist()
@@ -199,6 +177,7 @@ def render():
     def fmt(v):
         return f"{int(v):,}".replace(",", ".")
 
+    # 🔥 CARD (AGORA COM TÍTULO CENTRALIZADO)
     def card(col, titulo, valor, cor, subtitle=None, size="medium"):
         sizes = {
             "small": ("22px", "52px", "6px"),
@@ -211,10 +190,19 @@ def render():
         <div style="background:white;padding:{p};
         border-radius:18px;text-align:center;
         box-shadow:0 6px 18px rgba(0,0,0,0.18);">
-            <h3 style="font-size:{t};margin:0;">{titulo}</h3>
+
+            <h3 style="
+                font-size:{t};
+                margin:0;
+                text-align:center;
+                width:100%;
+                font-weight:800;
+            ">{titulo}</h3>
+
             <p style="font-size:{v};color:{cor};
             font-weight:800;margin:6px 0;">
             {fmt(valor)}</p>
+
             {f"<p style='font-size:22px;font-weight:600;'>{subtitle}</p>" if subtitle else ""}
         </div>
         """, unsafe_allow_html=True)
