@@ -165,7 +165,7 @@ def render():
         # 🔥 DATA LIMITE EXPEDIÇÃO (NOVO - VISUAL)
         st.markdown(
             f"""
-            <div style="text-align:left;margin-top:5px;">
+            <div style="text-align:left;margin-top:0px;">
                 <span style="
                     font-size:22px;
                     font-weight:900;
