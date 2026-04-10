@@ -23,35 +23,31 @@ def carregar_dados():
 
     conn.close()
 
-    # Garantir colunas mínimas
-    for col in ["box", "wave", "setor", "demanda", "audit_status"]:
+    # ==========================
+    # PADRONIZAÇÃO FORTE (IMPORTANTE)
+    # ==========================
+    for col in ["box", "wave"]:
         if col not in df.columns:
             df[col] = None
 
-    df["box"] = df["box"].astype(str).str.strip()
-    df["wave"] = df["wave"].astype(str).str.strip()
+    df["box"] = df["box"].astype(str).str.strip().str.upper()
+    df["wave"] = df["wave"].astype(str).str.strip().str.upper()
 
-    # ==========================
-    # MERGE SETOR (BLINDADO)
-    # ==========================
+    # SETORES
     if not df_setores.empty:
-        df_setores["box"] = df_setores["box"].astype(str).str.strip()
+        df_setores["box"] = df_setores["box"].astype(str).str.strip().str.upper()
         df = df.merge(df_setores, on="box", how="left")
     else:
         df["setor"] = None
 
-    # ==========================
-    # MERGE DEMANDA (BLINDADO)
-    # ==========================
+    # DEMANDAS
     if not df_demandas.empty:
-        df_demandas["wave"] = df_demandas["wave"].astype(str).str.strip()
+        df_demandas["wave"] = df_demandas["wave"].astype(str).str.strip().str.upper()
         df = df.merge(df_demandas, on="wave", how="left")
     else:
         df["demanda"] = None
 
-    # ==========================
     # DATA
-    # ==========================
     if "data_limite_expedicao" in df.columns:
         df["data_limite_expedicao"] = pd.to_datetime(
             df["data_limite_expedicao"],
@@ -68,6 +64,9 @@ def render():
 
     st_autorefresh(interval=600000, key="auto_refresh_visao")
 
+    # ==========================
+    # CLOCK FIXO
+    # ==========================
     components.html(
         """
         <div id="clock" style="
@@ -103,22 +102,26 @@ def render():
         st.stop()
 
     # ==========================
-    # BOTÃO ATUALIZAR
+    # ATUALIZAR
     # ==========================
     if st.sidebar.button("🔄 Atualizar Dados"):
         st.cache_data.clear()
         st.rerun()
 
     # ==========================
-    # FILTRO SETOR (BLINDADO)
+    # FILTRO SETOR (CORRIGIDO)
     # ==========================
     st.sidebar.subheader("Filtro por Setor")
 
-    setores = sorted(df["setor"].dropna().unique().tolist()) if "setor" in df.columns else []
+    if "setor" in df.columns:
+        setores = sorted(df["setor"].dropna().unique().tolist())
+    else:
+        setores = []
+
     setores_sel = st.sidebar.multiselect("Setor:", setores, default=setores)
 
-    if setores_sel:
-        df = df[df["setor"].isin(setores_sel)]
+    if setores_sel and "setor" in df.columns:
+        df = df[df["setor"].fillna("SEM_SETOR").isin(setores_sel)]
 
     if df.empty:
         st.warning("Nenhum dado após filtro de setor.")
@@ -158,7 +161,7 @@ def render():
         st.stop()
 
     # ==========================
-    # DEMANDA (GLOBAL - BLINDADO)
+    # DEMANDA (GLOBAL LIMPA)
     # ==========================
     demanda_lista = ["— Nenhuma seleção —"] + sorted(
         df_demandas["demanda"].dropna().unique().tolist()
@@ -183,13 +186,12 @@ def render():
             st.image(Image.open(IMAGE_PATH), width=220)
 
     with col_c:
-        st.markdown(
-            "<h1 style='text-align:center;font-size:40px;font-weight:900;margin-top:120px;'>SALÃO</h1>",
-            unsafe_allow_html=True
-        )
+        st.subheader("📦 SALÃO")
+
+    st.divider()
 
     # ==========================
-    # FUNÇÕES AUXILIARES
+    # FUNÇÕES
     # ==========================
     status_col = "status_olpn"
     qtd_col = "qtde_pecas_item"
@@ -220,8 +222,6 @@ def render():
     # ==========================
     # SALÃO
     # ==========================
-    st.markdown("## SALÃO")
-
     def resumo(df_local):
         return df_local.groupby(status_col)[qtd_col].sum()
 
@@ -243,7 +243,8 @@ def render():
     # ==========================
     # P.A.R
     # ==========================
-    st.markdown("## P.A.R")
+    st.subheader("📦 P.A.R")
+    st.divider()
 
     res_par = resumo(df_par)
     cols = st.columns(5)
@@ -254,9 +255,10 @@ def render():
     card(cols[4], "Total Geral", df_par[qtd_col].sum(), "black")
 
     # ==========================
-    # AUDIT (BLINDADO)
+    # AUDIT
     # ==========================
-    st.markdown("## AUDIT")
+    st.subheader("📊 AUDIT")
+    st.divider()
 
     if df_salao.empty or "audit_status" not in df_salao.columns:
         st.info("Sem dados de AUDIT.")
