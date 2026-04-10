@@ -163,7 +163,7 @@ def render():
     st.sidebar.subheader("Filtros — Salão")
     st.sidebar.subheader("Filtros — P.A.R")
 
-    demanda_lista = ["— Nenhuma seleção —"] + sorted(base_df["demanda"].dropna().unique().tolist())
+    demanda_lista = ["— Nenhuma seleção —"] + sorted(base_df["demanda"].dropna().tolist())
 
     demanda_salao = st.sidebar.selectbox("Demanda Salão:", demanda_lista)
     demanda_par = st.sidebar.selectbox("Demanda (P.A.R):", demanda_lista)
@@ -221,19 +221,18 @@ def render():
     # ==========================
     st.markdown("<h2 style='text-align:center;font-size:34px;font-weight:800;'>SALÃO</h2>", unsafe_allow_html=True)
 
-    # 🔥 RESTAURAÇÃO DA DATA (PEDIDO)
+    # 🔥 DATA ORIGINAL (SEM PERÍODO)
     if "data_limite_expedicao" in df_salao.columns and not df_salao.empty:
-        data_min = df_salao["data_limite_expedicao"].min()
-        data_max = df_salao["data_limite_expedicao"].max()
+        data_base = df_salao["data_limite_expedicao"].iloc[0]
 
-        if pd.notna(data_min) and pd.notna(data_max):
+        if pd.notna(data_base):
             st.markdown(
                 f"""
                 <div style="text-align:center;
                             font-size:20px;
                             font-weight:700;
                             margin-bottom:10px;">
-                    📅 Período: {data_min.strftime('%d/%m/%Y')} até {data_max.strftime('%d/%m/%Y')}
+                    📅 Data Expedição: {data_base.strftime('%d/%m/%Y')}
                 </div>
                 """,
                 unsafe_allow_html=True
