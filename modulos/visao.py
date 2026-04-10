@@ -27,9 +27,6 @@ def carregar_dados():
         st.error(f"Erro ao conectar no banco: {e}")
         return pd.DataFrame()
 
-    # ==========================
-    # NORMALIZAÇÃO SEGURA
-    # ==========================
     for col in ["box"]:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip()
@@ -46,27 +43,18 @@ def carregar_dados():
         if col in df_demandas.columns:
             df_demandas[col] = df_demandas[col].astype(str).str.strip()
 
-    # ==========================
-    # MERGE SEGURO
-    # ==========================
     if not df_setores.empty:
         df = df.merge(df_setores, on="box", how="left")
 
     if not df_demandas.empty:
         df = df.merge(df_demandas, on="wave", how="left")
 
-    # ==========================
-    # GARANTIA DE COLUNAS (SEM QUEBRAR)
-    # ==========================
     if "setor" not in df.columns:
         df["setor"] = "SEM_SETOR"
 
     if "demanda" not in df.columns:
         df["demanda"] = "SEM_DEMANDA"
 
-    # ==========================
-    # DATAS SEGURAS
-    # ==========================
     if "data_limite_expedicao" in df.columns:
         df["data_limite_expedicao"] = pd.to_datetime(
             df["data_limite_expedicao"],
@@ -113,9 +101,6 @@ def render():
 
     df = carregar_dados()
 
-    # ==========================
-    # PROTEÇÃO BASE
-    # ==========================
     if df is None or df.empty:
         st.warning("⏳ Banco de dados indisponível ou vazio.")
         st.stop()
@@ -125,11 +110,11 @@ def render():
         st.rerun()
 
     # ==========================
-    # FILTRO SETOR (SEGURO)
+    # FILTRO SETOR
     # ==========================
     st.sidebar.subheader("Filtro por Setor")
 
-    setores = sorted(df["setor"].dropna().unique().tolist()) if "setor" in df.columns else []
+    setores = sorted(df["setor"].dropna().unique().tolist())
     setores_sel = st.sidebar.multiselect("Setor:", setores, default=setores)
 
     if setores_sel:
@@ -140,7 +125,7 @@ def render():
         st.stop()
 
     # ==========================
-    # FILTRO DATA (SEGURO)
+    # FILTRO DATA
     # ==========================
     df = df.dropna(subset=["data_limite_expedicao"]) if "data_limite_expedicao" in df.columns else df
 
@@ -170,34 +155,24 @@ def render():
             (df["data_limite_expedicao"] <= data_fim)
         ]
 
-    # ==========================
-    # BASE SEGURA (NÃO ALTERA LÓGICA)
-    # ==========================
     base_df = df.copy()
 
     # ==========================
-    # DEMANDAS (SEM MUDAR LÓGICA)
+    # DEMANDAS
     # ==========================
     st.sidebar.subheader("Filtros — Salão")
     st.sidebar.subheader("Filtros — P.A.R")
 
-    demanda_lista = ["— Nenhuma seleção —"] + sorted(base_df["demanda"].dropna().unique().tolist()) if "demanda" in base_df.columns else ["— Nenhuma seleção —"]
+    demanda_lista = ["— Nenhuma seleção —"] + sorted(base_df["demanda"].dropna().unique().tolist())
 
     demanda_salao = st.sidebar.selectbox("Demanda Salão:", demanda_lista)
     demanda_par = st.sidebar.selectbox("Demanda (P.A.R):", demanda_lista)
 
-    if demanda_salao != "— Nenhuma seleção —":
-        df_salao = base_df[base_df["demanda"] == demanda_salao]
-    else:
-        df_salao = base_df.copy()
-
-    if demanda_par != "— Nenhuma seleção —":
-        df_par = base_df[base_df["demanda"] == demanda_par]
-    else:
-        df_par = base_df.copy()
+    df_salao = base_df if demanda_salao == "— Nenhuma seleção —" else base_df[base_df["demanda"] == demanda_salao]
+    df_par = base_df if demanda_par == "— Nenhuma seleção —" else base_df[base_df["demanda"] == demanda_par]
 
     # ==========================
-    # PROTEÇÃO FINAL DF
+    # FUNÇÕES
     # ==========================
     def safe_sum(df, col):
         return df[col].sum() if col in df.columns else 0
@@ -244,6 +219,26 @@ def render():
     # ==========================
     # SALÃO
     # ==========================
+    st.markdown("<h2 style='text-align:center;font-size:34px;font-weight:800;'>SALÃO</h2>", unsafe_allow_html=True)
+
+    # 🔥 RESTAURAÇÃO DA DATA (PEDIDO)
+    if "data_limite_expedicao" in df_salao.columns and not df_salao.empty:
+        data_min = df_salao["data_limite_expedicao"].min()
+        data_max = df_salao["data_limite_expedicao"].max()
+
+        if pd.notna(data_min) and pd.notna(data_max):
+            st.markdown(
+                f"""
+                <div style="text-align:center;
+                            font-size:20px;
+                            font-weight:700;
+                            margin-bottom:10px;">
+                    📅 Período: {data_min.strftime('%d/%m/%Y')} até {data_max.strftime('%d/%m/%Y')}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
     res_salao = resumo_status(df_salao)
     cols = st.columns(5)
 
@@ -266,7 +261,7 @@ def render():
     card(cols[4], "Total Geral", safe_sum(df_par, qtd_col), "black")
 
     # ==========================
-    # AUDIT (BLINDADO)
+    # AUDIT
     # ==========================
     st.markdown("<h2 style='text-align:center;font-size:34px;font-weight:800;'>AUDIT</h2>", unsafe_allow_html=True)
 
@@ -290,7 +285,7 @@ def render():
         })
     ).fillna("AUDIT INCOMPLETO")
 
-    df_audit = audit_base.groupby("status_audit_tratado")[qtd_col].sum().reset_index() if qtd_col in audit_base.columns else pd.DataFrame()
+    df_audit = audit_base.groupby("status_audit_tratado")[qtd_col].sum().reset_index()
 
     total = df_audit[qtd_col].sum() if not df_audit.empty else 0
 
