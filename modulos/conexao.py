@@ -1,11 +1,13 @@
 import mysql.connector
+import os
 
 def get_connection():
     return mysql.connector.connect(
-        host="gondola.proxy.rlwy.net",
-        user="root",
-        password="NWyoLjEbDJydymKDvQHxQhzNwdJkAMuH",
-        database="railway",
-        port=25644,
+        host=os.environ.get("DB_HOST"),
+        user=os.environ.get("DB_USER"),
+        password=os.environ.get("DB_PASSWORD"),
+        database=os.environ.get("DB_NAME"),
+        port=int(os.environ.get("DB_PORT", 3306)),
         autocommit=True
     )
+
