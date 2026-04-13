@@ -87,10 +87,8 @@ def get_detalhamento(grupo, where_sql=""):
     query = f"""
     SELECT
         bo.tarefa,
-        bo.local_picking,
-        COUNT(*) AS qtde_linhas,
-        SUM(bo.qtde_pecas_item) AS qtde_pecas,
-        bo.status_olpn
+        COUNT(DISTINCT bo.local_picking) AS qtde_locais,
+        SUM(bo.qtde_pecas_item) AS qtde_pecas
     {BASE_FROM}
     WHERE bo.status_olpn = 'Created'
     AND bo.grupo_tarefa = '{grupo}'
@@ -100,7 +98,7 @@ def get_detalhamento(grupo, where_sql=""):
         query += " AND " + where_sql
 
     query += """
-    GROUP BY bo.tarefa, bo.local_picking, bo.status_olpn
+    GROUP BY bo.tarefa
     ORDER BY qtde_pecas DESC
     """
 
