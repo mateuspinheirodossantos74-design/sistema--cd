@@ -1,11 +1,23 @@
 import streamlit as st
-from modulos import inicio, visao, tarefas, login, chatbot, gestao_usuarios, inserir_demanda
+from modulos import (
+    inicio,
+    visao,
+    tarefas,
+    login,
+    chatbot,
+    gestao_usuarios,
+    inserir_demanda
+)
+from modulos.style import aplicar_estilo
+
 
 st.set_page_config(
     page_title="Sistema Logístico",
     page_icon="📦",
     layout="wide"
 )
+
+aplicar_estilo()
 
 # ==========================
 # SESSION STATE PADRÃO
@@ -22,96 +34,75 @@ if "nivel" not in st.session_state:
 if "trocar_senha_obrigatorio" not in st.session_state:
     st.session_state.trocar_senha_obrigatorio = False
 
+
 # ==========================
 # CONTROLE DE ACESSO
 # ==========================
-
-# 🔒 PRIORIDADE: primeiro acesso (troca obrigatória)
 if st.session_state.trocar_senha_obrigatorio:
     login.render()
     st.stop()
 
-# 🔐 NÃO LOGADO
 if not st.session_state.logado:
     login.render()
     st.stop()
 
+
 # ==========================
-# SIDEBAR (SISTEMA LIBERADO)
+# SIDEBAR
 # ==========================
 with st.sidebar:
 
-    st.markdown("## 📌 Menu Principal")
+    st.markdown("## 📦 Sistema CD")
+    st.markdown("---")
+
     st.markdown(f"👤 **{st.session_state.nome_usuario}**")
     st.markdown("---")
 
-    # MENU PADRÃO
-    menu = [
-        "🏠 Início",
-        "📝 Inserir Demanda",
-        "📋 Visão Geral",
-        "📦 Tarefas",
-        "📊 Dashboard",
-        "📈 Produtividade",
-        "🤖 Chatbot",
-        "💡 Sugestões",
-        "Relatorios"
-    ]
+    st.markdown("### 🚀 Operação")
 
-    # 🔐 SOMENTE ADMIN
+    # ==========================
+    # MENU (MAPEAMENTO DE ROTAS)
+    # ==========================
+    menu = {
+        "🏠 Início": inicio.render,
+        "📝 Inserir Demanda": inserir_demanda.render,
+        "📋 Visão Geral": visao.render,
+        "📦 Tarefas": tarefas.render,
+        "📊 Dashboard": lambda: st.info("Módulo em desenvolvimento..."),
+        "📈 Produtividade": lambda: st.info("Módulo em desenvolvimento..."),
+        "🤖 Chatbot": chatbot.render,
+        "💡 Sugestões": lambda: st.info("Módulo em desenvolvimento..."),
+        "📄 Relatórios": lambda: st.info("Módulo em desenvolvimento...")
+    }
+
+    # ADMIN
     if st.session_state.nivel == "admin":
-        menu.append("👥 Gestão de Usuários")
+        menu["👥 Gestão de Usuários"] = gestao_usuarios.render
 
-    pagina = st.radio("Navegação", menu)
+    pagina = st.radio(
+        "Navegação",
+        list(menu.keys()),
+        label_visibility="collapsed"
+    )
 
     st.markdown("---")
 
-    # 🚪 LOGOUT
+    st.markdown("### ⚙️ Sistema")
+
     if st.button("🚪 Sair"):
         st.session_state.clear()
         st.rerun()
 
+
 # ==========================
-# SEGURANÇA EXTRA (ROTA)
+# SEGURANÇA EXTRA
 # ==========================
 if pagina == "👥 Gestão de Usuários" and st.session_state.nivel != "admin":
     st.error("Acesso não autorizado")
     st.stop()
 
+
 # ==========================
-# RENDERIZAÇÃO DAS PÁGINAS
+# EXECUÇÃO DAS PÁGINAS
 # ==========================
-
-if pagina == "🏠 Início":
-    inicio.render()
-
-elif pagina == "📋 Visão Geral":
-    visao.render()
-    
-elif pagina == "📝 Inserir Demanda":
-    inserir_demanda.render()
-
-elif pagina == "📦 Tarefas":
-    tarefas.render()
-
-elif pagina == "📊 Dashboard":
-    st.title("📊 Dashboard")
-    st.info("Módulo em desenvolvimento...")
-
-elif pagina == "📈 Produtividade":
-    st.title("📈 Produtividade")
-    st.info("Módulo em desenvolvimento...")
-
-elif pagina == "🤖 Chatbot":
-    chatbot.render()
-
-elif pagina == "💡 Sugestões":
-    st.title("💡 Sugestões")
-    st.info("Módulo em desenvolvimento...")
-
-elif pagina == "Relatorios":
-    st.title("Relatorios")
-    st.info("Módulo em desenvolvimento...")
-
-elif pagina == "👥 Gestão de Usuários":
-    gestao_usuarios.render()
+menu[pagina]()
