@@ -5,7 +5,6 @@ from difflib import get_close_matches
 from modulos.conexao import get_connection
 
 
-
 # ==========================
 # EXECUTAR QUERY
 # ==========================
@@ -23,23 +22,35 @@ def executar_query(query, params=None):
         except:
             pass
 
+
 # ==========================
-# CACHE DE VALORES
+# CACHE DE VALORES (CORRIGIDO)
 # ==========================
 @st.cache_data(ttl=300)
 def get_valores(coluna):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(f"SELECT DISTINCT {coluna} FROM base_operacional")
+
+        if coluna == "setor":
+            cursor.execute("SELECT DISTINCT setor FROM mapa_box_setor")
+
+        elif coluna == "demanda":
+            cursor.execute("SELECT DISTINCT demanda FROM demanda")
+
+        else:
+            cursor.execute(f"SELECT DISTINCT {coluna} FROM base_operacional")
+
         valores = [r[0] for r in cursor.fetchall() if r[0]]
         cursor.close()
         return valores
+
     finally:
         try:
             conn.close()
         except:
             pass
+
 
 # ==========================
 # INTERPRETADOR DE PERGUNTA
@@ -57,36 +68,36 @@ def interpretar(pergunta):
 
     # DATA
     if "hoje" in pergunta:
-        filtros["where"].append("DATE(data_limite_expedicao) = %s")
+        filtros["where"].append("DATE(bo.data_limite_expedicao) = %s")
         filtros["params"].append(hoje)
 
     if "amanhã" in pergunta or "amanha" in pergunta:
-        filtros["where"].append("DATE(data_limite_expedicao) = %s")
+        filtros["where"].append("DATE(bo.data_limite_expedicao) = %s")
         filtros["params"].append(hoje + timedelta(days=1))
 
     match_dia = re.search(r"dia (\d{1,2})", pergunta)
     if match_dia:
-        filtros["where"].append("DAY(data_limite_expedicao) = %s")
+        filtros["where"].append("DAY(bo.data_limite_expedicao) = %s")
         filtros["params"].append(int(match_dia.group(1)))
 
     # WAVE
     match_wave = re.search(r"w\d+", pergunta)
     if match_wave:
-        filtros["where"].append("wave = %s")
+        filtros["where"].append("bo.wave = %s")
         filtros["params"].append(match_wave.group(0).upper())
 
     # SETOR
     setores = get_valores("setor")
     setor_match = get_close_matches(pergunta, setores, n=1, cutoff=0.4)
     if setor_match:
-        filtros["where"].append("setor = %s")
+        filtros["where"].append("ms.setor = %s")
         filtros["params"].append(setor_match[0])
 
     # DEMANDA
     demandas = get_valores("demanda")
     for d in demandas:
         if all(p in pergunta for p in d.lower().split()):
-            filtros["where"].append("demanda = %s")
+            filtros["where"].append("d.demanda = %s")
             filtros["params"].append(d)
             break
 
@@ -120,15 +131,17 @@ def responder(pergunta):
     params = filtros["params"]
 
     # ==========================
-    # CONSULTA PRINCIPAL
+    # CONSULTA PRINCIPAL (COM JOIN)
     # ==========================
     if filtros["status"]:
         query = f"""
         SELECT 
-            SUM(qtde_pecas_item) as total
-        FROM base_operacional
+            SUM(bo.qtde_pecas_item) as total
+        FROM base_operacional bo
+        LEFT JOIN mapa_box_setor ms ON bo.box = ms.box
+        LEFT JOIN demanda d ON bo.wave = d.wave
         {where_sql}
-        {"AND" if where_sql else "WHERE"} status_olpn = %s
+        {"AND" if where_sql else "WHERE"} bo.status_olpn = %s
         """
 
         result = executar_query(query, params + [filtros["status"]])
@@ -144,15 +157,17 @@ Se quiser, posso detalhar mais 👀
 """.replace(",", ".")
 
     # ==========================
-    # RESUMO GERAL
+    # RESUMO GERAL (COM JOIN)
     # ==========================
     query = f"""
     SELECT 
-        status_olpn,
-        SUM(qtde_pecas_item) as total
-    FROM base_operacional
+        bo.status_olpn,
+        SUM(bo.qtde_pecas_item) as total
+    FROM base_operacional bo
+    LEFT JOIN mapa_box_setor ms ON bo.box = ms.box
+    LEFT JOIN demanda d ON bo.wave = d.wave
     {where_sql}
-    GROUP BY status_olpn
+    GROUP BY bo.status_olpn
     """
 
     result = executar_query(query, params)
