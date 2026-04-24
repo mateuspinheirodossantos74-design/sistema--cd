@@ -252,12 +252,12 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
                 ("ALIGN", (4, 1), (4, -1), "LEFT"),
                 ("ALIGN", (5, 1), (-1, -1), "CENTER"),
 
-                ("TOPPADDING", (0, 0), (-1, -1), 5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
             ]))
 
             elements.append(table)
-            elements.append(Spacer(1, 10))
+            elements.append(Spacer(1, 4))
 
     # ==========================
     # ORDEM ORIGINAL MANTIDA
