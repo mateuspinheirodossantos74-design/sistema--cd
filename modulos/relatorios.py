@@ -227,12 +227,12 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
                 1.6 * cm,
                 2.6 * cm,
                 2.0 * cm,
-                7.8 * cm,
+                7.2 * cm,
                 2.2 * cm,
                 1.4 * cm,
                 2.2 * cm,
-                2.0 * cm,
-                3.0 * cm,   # conferente maior (CORREÇÃO PRINCIPAL)
+                1.4 * cm,
+                3.2 * cm,   # conferente maior (CORREÇÃO PRINCIPAL)
             ]
 
             if n_cols > len(base_widths):
