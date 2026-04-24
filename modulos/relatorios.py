@@ -186,10 +186,12 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(A4),
-        rightMargin=1.0 * cm,
-        leftMargin=1.0 * cm,
-        topMargin=0.8 * cm,
-        bottomMargin=0.8 * cm
+
+        # 🔥 mais espaço útil na folha
+        rightMargin=0.5 * cm,
+        leftMargin=0.5 * cm,
+        topMargin=0.5 * cm,
+        bottomMargin=0.5 * cm
     )
 
     styles = getSampleStyleSheet()
@@ -218,27 +220,37 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
             data = [chunk.columns.tolist()] + chunk.values.tolist()
 
             # ==========================
-            # 🔧 AJUSTE CORRETO (SEM MISTURAR COLUNAS)
+            # 🔥 AJUSTE FINAL (PROPORCIONAL À FOLHA)
             # ==========================
+            page_width = landscape(A4)[0]
+            usable_width = page_width - 1.0 * cm
+
             n_cols = len(chunk.columns)
 
-            base_widths = [
-                1.2 * cm,
-                1.6 * cm,
-                2.6 * cm,
-                2.0 * cm,
-                7.2 * cm,
-                2.2 * cm,
-                1.4 * cm,
-                2.2 * cm,
-                1.4 * cm,
-                3.2 * cm,   # conferente maior (CORREÇÃO PRINCIPAL)
+            weights = [
+                1.2,  # tipo
+                1.4,  # filial
+                2.2,  # olpn
+                1.8,  # item
+                6.0,  # descrição
+                2.0,  # local
+                1.2,  # qtde
+                2.0,  # status
+                1.2,  # box
+                2.8,  # conferente
             ]
 
-            if n_cols > len(base_widths):
-                base_widths += [2.2 * cm] * (n_cols - len(base_widths))
+            if n_cols > len(weights):
+                weights += [2.2] * (n_cols - len(weights))
 
-            col_widths = base_widths[:n_cols]
+            weights = weights[:n_cols]
+
+            total_weight = sum(weights)
+
+            col_widths = [
+                (w / total_weight) * usable_width
+                for w in weights
+            ]
 
             table = Table(
                 data,
@@ -259,12 +271,11 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
 
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
 
-                # 🔥 CORREÇÃO IMPORTANTE DE ALINHAMENTO
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
 
                 ("ALIGN", (0, 1), (3, -1), "CENTER"),
                 ("ALIGN", (4, 1), (4, -1), "LEFT"),
-                ("ALIGN", (5, 1), (9, -1), "CENTER"),
+                ("ALIGN", (5, 1), (-1, -1), "CENTER"),
 
                 ("TOPPADDING", (0, 0), (-1, -1), 6),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
