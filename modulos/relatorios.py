@@ -229,8 +229,8 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
 
             weights = [
                 1.0,  # tipo
-                1.2,  # filial
-                2.0,  # olpn
+                1.0,  # filial
+                1.8,  # olpn
                 1.6,  # item
                 7.2,  # descrição
                 2.0,  # local
