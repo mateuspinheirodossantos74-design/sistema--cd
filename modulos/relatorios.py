@@ -228,16 +228,16 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
             n_cols = len(chunk.columns)
 
             weights = [
-                1.2,  # tipo
-                1.4,  # filial
-                2.2,  # olpn
-                1.8,  # item
-                6.0,  # descrição
+                1.0,  # tipo
+                1.2,  # filial
+                2.0,  # olpn
+                1.6,  # item
+                7.8,  # descrição
                 2.0,  # local
                 1.2,  # qtde
                 2.0,  # status
-                1.2,  # box
-                2.8,  # conferente
+                1.0,  # box
+                2.6,  # conferente
             ]
 
             if n_cols > len(weights):
