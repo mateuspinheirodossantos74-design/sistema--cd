@@ -26,26 +26,7 @@ PDF_LIMIT = 80
 
 
 # ==========================
-# CONEXÃO (PADRÃO ANTIGO)
-# ==========================
-def executar_query(query):
-    conn = get_connection()
-    try:
-        conn.ping(reconnect=True, attempts=3, delay=2)
-        df = pd.read_sql(query, conn)
-        return df
-    except Exception as e:
-        st.error(f"Erro ao executar query: {e}")
-        return pd.DataFrame()
-    finally:
-        try:
-            conn.close()
-        except:
-            pass
-
-
-# ==========================
-# LIMPAR NOME ARQUIVO
+# AUXILIAR
 # ==========================
 def limpar_nome_arquivo(nome):
     if not nome:
@@ -59,39 +40,85 @@ def limpar_nome_arquivo(nome):
 
 
 # ==========================
-# CARREGAR DADOS (SEM API)
+# PREPARAÇÃO PDF
+# ==========================
+def preparar_df_pdf(df):
+    df = df.copy()
+
+    if "descricao" in df.columns:
+        df["descricao"] = df["descricao"].fillna("").astype(str)
+
+    return df
+
+
+# ==========================
+# CARREGAR DADOS
 # ==========================
 @st.cache_data(ttl=300)
 def carregar_dados():
-    query = """
-    SELECT
-        bo.tipo_pedido,
-        bo.filial_destino,
-        bo.olpn,
-        bo.item,
-        bo.descricao,
-        bo.local_picking,
-        bo.qtde_pecas_item,
-        bo.status_olpn,
-        bo.box,
-        bo.wave,
-        c.conferente,
-        d.demanda,
-        bo.audit_status
-    FROM base_operacional bo
-    LEFT JOIN conferentes c ON bo.box = c.box
-    LEFT JOIN demanda d ON bo.wave = d.wave
-    """
+    try:
+        conn = get_connection()
 
-    df = executar_query(query)
+        query = """
+        SELECT
+            bo.tipo_pedido,
+            bo.filial_destino,
+            bo.olpn,
+            bo.item,
+            bo.descricao,
+            bo.local_picking,
+            bo.qtde_pecas_item,
+            bo.status_olpn,
+            bo.box,
+            bo.wave,
+            c.conferente,
+            bo.audit_status
+        FROM base_operacional bo
+        LEFT JOIN conferentes c
+            ON bo.box = c.box
+        """
 
-    if df.empty:
+        df = pd.read_sql(query, conn)
+
+        df_demanda = pd.read_sql(
+            "SELECT wave, demanda FROM demanda",
+            conn
+        )
+
+        conn.close()
+
+        df["wave"] = (
+            df["wave"]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )
+
+        df_demanda["wave"] = (
+            df_demanda["wave"]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )
+
+        df = df.merge(
+            df_demanda,
+            on="wave",
+            how="left"
+        )
+
+        df["tipo_pedido"] = (
+            df["tipo_pedido"]
+            .astype(str)
+            .str.split(" - ")
+            .str[0]
+        )
+
         return df
 
-    df["wave"] = df["wave"].astype(str).str.strip().str.upper()
-    df["tipo_pedido"] = df["tipo_pedido"].astype(str).str.split(" - ").str[0]
-
-    return df
+    except Exception as e:
+        st.error(f"Erro ao carregar dados: {e}")
+        return pd.DataFrame()
 
 
 # ==========================
@@ -111,7 +138,6 @@ COLUNAS = [
 ]
 
 COLUNAS_AUDIT = COLUNAS + ["audit_status"]
-
 
 MAPA_COLUNAS = {
     "tipo_pedido": "Tipo",
@@ -172,6 +198,7 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
     def montar_tabela(df, titulo):
 
         df = df.rename(columns=MAPA_COLUNAS).copy()
+        df = preparar_df_pdf(df)
 
         total_linhas = len(df)
 
@@ -180,37 +207,60 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
             chunk = df.iloc[start:start + PDF_LIMIT]
 
             elements.append(
-                Paragraph(f"{titulo} - {conferente}".upper(), styles["Heading2"])
+                Paragraph(
+                    f"{titulo} - {conferente}".upper(),
+                    styles["Heading2"]
+                )
             )
 
             elements.append(Spacer(1, 6))
 
             data = [chunk.columns.tolist()] + chunk.values.tolist()
 
-            col_widths = [
+            # ==========================
+            # AJUSTE CORRETO DAS COLUNAS (FIX AUDIT CORTANDO)
+            # ==========================
+            n_cols = len(chunk.columns)
+
+            base_widths = [
                 1.2 * cm,
-                1.5 * cm,
+                1.6 * cm,
                 2.8 * cm,
+                2.0 * cm,
+                8.5 * cm,
                 2.2 * cm,
-                10.8 * cm,
-                2.8 * cm,
                 1.6 * cm,
                 2.4 * cm,
                 1.5 * cm,
-                3.0 * cm,
+                2.5 * cm,
             ]
 
-            table = Table(data, repeatRows=1, colWidths=col_widths)
+            if n_cols > len(base_widths):
+                base_widths += [2.2 * cm] * (n_cols - len(base_widths))
+
+            col_widths = base_widths[:n_cols]
+
+            table = Table(
+                data,
+                repeatRows=1,
+                colWidths=col_widths
+            )
 
             table.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), colors.black),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+
                 ("GRID", (0, 0), (-1, -1), 0.35, colors.black),
+
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
+
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("ALIGN", (4, 1), (4, -1), "LEFT"),
+
                 ("TOPPADDING", (0, 0), (-1, -1), 6),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
             ]))
@@ -240,7 +290,6 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
 # RENDER
 # ==========================
 def render():
-
     st.title("📄 Relatório de Pendências por Conferente")
 
     df = carregar_dados()
@@ -260,9 +309,11 @@ def render():
 
     df = df[df["conferente"] == conferente_sel]
 
+    demandas = sorted(df["demanda"].dropna().unique().tolist())
+
     demanda_sel = st.sidebar.selectbox(
         "Demanda",
-        ["Todas"] + sorted(df["demanda"].dropna().unique().tolist())
+        ["Todas"] + demandas
     )
 
     if demanda_sel != "Todas":
@@ -285,11 +336,11 @@ def render():
     df_packed = df_base[df_base["status_olpn"].isin(status_packed)][COLUNAS].copy()
     df_audit = df_base[df_base["audit_status"].isin(status_audit)][COLUNAS_AUDIT].copy()
 
-    df_packed["box"] = pd.to_numeric(df_packed["box"], errors="coerce")
-    df_audit["box"] = pd.to_numeric(df_audit["box"], errors="coerce")
+    df_packed["box_num"] = pd.to_numeric(df_packed["box"], errors="coerce")
+    df_audit["box_num"] = pd.to_numeric(df_audit["box"], errors="coerce")
 
-    df_packed = df_packed.sort_values(by=["box", "olpn"])
-    df_audit = df_audit.sort_values(by=["box", "olpn"])
+    df_packed = df_packed.sort_values(by=["box_num", "olpn"]).drop(columns=["box_num"])
+    df_audit = df_audit.sort_values(by=["box_num", "olpn"]).drop(columns=["box_num"])
 
     nome_base = limpar_nome_arquivo(conferente_sel)
 
@@ -298,8 +349,22 @@ def render():
     with aba1:
         st.dataframe(df_packed, use_container_width=True)
 
+        st.markdown(f"""
+        **📊 Resumo PACKED**
+        - Total de registros: {len(df_packed)}
+        - Total de peças: {df_packed['qtde_pecas_item'].sum():,.0f}
+        - 🔢 Contador final: {len(df_packed)}
+        """)
+
     with aba2:
         st.dataframe(df_audit, use_container_width=True)
+
+        st.markdown(f"""
+        **📊 Resumo AUDIT**
+        - Total de registros: {len(df_audit)}
+        - Total de peças: {df_audit['qtde_pecas_item'].sum():,.0f}
+        - 🔢 Contador final: {len(df_audit)}
+        """)
 
     st.markdown("---")
 
@@ -308,14 +373,29 @@ def render():
     with col1:
         if st.button("📦 PACKED"):
             pdf = gerar_pdf(df_packed, df_audit, "PACKED", conferente_sel)
-            st.download_button("Baixar PDF PACKED", pdf, f"{nome_base}_packed.pdf")
+
+            st.download_button(
+                "Baixar PDF PACKED",
+                pdf,
+                f"{nome_base}_packed.pdf"
+            )
 
     with col2:
         if st.button("🧾 AUDIT"):
             pdf = gerar_pdf(df_packed, df_audit, "AUDIT", conferente_sel)
-            st.download_button("Baixar PDF AUDIT", pdf, f"{nome_base}_audit.pdf")
+
+            st.download_button(
+                "Baixar PDF AUDIT",
+                pdf,
+                f"{nome_base}_audit.pdf"
+            )
 
     with col3:
         if st.button("📄 COMPLETO"):
             pdf = gerar_pdf(df_packed, df_audit, "COMPLETO", conferente_sel)
-            st.download_button("Baixar PDF COMPLETO", pdf, f"{nome_base}_completo.pdf")
+
+            st.download_button(
+                "Baixar PDF COMPLETO",
+                pdf,
+                f"{nome_base}_completo.pdf"
+            )
