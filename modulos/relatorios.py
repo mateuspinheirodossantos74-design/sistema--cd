@@ -231,7 +231,7 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
                 2.2 * cm,
                 1.4 * cm,
                 2.2 * cm,
-                1.4 * cm,
+                2.0 * cm,
                 3.0 * cm,   # conferente maior (CORREÇÃO PRINCIPAL)
             ]
 
