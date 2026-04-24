@@ -176,9 +176,6 @@ def tratar_audit(df):
     return df
 
 
-# ==========================
-# PDF
-# ==========================
 def gerar_pdf(df_packed, df_audit, modo, conferente):
 
     buffer = io.BytesIO()
@@ -186,8 +183,6 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(A4),
-
-        # 🔥 mais espaço útil na folha
         rightMargin=0.5 * cm,
         leftMargin=0.5 * cm,
         topMargin=0.5 * cm,
@@ -204,6 +199,10 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
 
         total_linhas = len(df)
 
+        # ==========================
+        # MANTÉM SUA LÓGICA DE CHUNK
+        # (SEM MEXER NA ESTRUTURA)
+        # ==========================
         for start in range(0, total_linhas, PDF_LIMIT):
 
             chunk = df.iloc[start:start + PDF_LIMIT]
@@ -219,26 +218,15 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
 
             data = [chunk.columns.tolist()] + chunk.values.tolist()
 
-            # ==========================
-            # 🔥 AJUSTE FINAL (PROPORCIONAL À FOLHA)
-            # ==========================
             page_width = landscape(A4)[0]
             usable_width = page_width - 1.0 * cm
 
-            n_cols = len(chunk.columns)
-
             weights = [
-                1.0,  # tipo
-                0.8,  # filial
-                1.6,  # olpn
-                1.4,  # item
-                7.0,  # descrição
-                1.8,  # local
-                1.2,  # qtde
-                1.8,  # status
-                1.0,  # box
-                2.0,  # conferente
+                1.0, 0.9, 1.6, 1.4, 7.2,
+                1.8, 1.3, 1.8, 1.2, 2.2
             ]
+
+            n_cols = len(chunk.columns)
 
             if n_cols > len(weights):
                 weights += [2.2] * (n_cols - len(weights))
@@ -273,25 +261,29 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
 
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
 
-                ("ALIGN", (0, 1), (3, -1), "CENTER"),
                 ("ALIGN", (4, 1), (4, -1), "LEFT"),
                 ("ALIGN", (5, 1), (-1, -1), "CENTER"),
 
-                ("TOPPADDING", (0, 0), (-1, -1), 6),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
             ]))
 
             elements.append(table)
             elements.append(Spacer(1, 10))
 
-            if start + PDF_LIMIT < total_linhas:
-                elements.append(PageBreak())
+            # ==========================
+            # ❌ REMOVIDO: PageBreak FORÇADO
+            # ==========================
+            # ISSO ERA O PROBLEMA DO "UMA FOLHA POR RELATÓRIO"
 
+    # ==========================
+    # ORDEM ORIGINAL MANTIDA
+    # ==========================
     if modo in ["COMPLETO", "PACKED"]:
         montar_tabela(df_packed, "PACKED")
 
     if modo == "COMPLETO":
-        elements.append(PageBreak())
+        elements.append(Spacer(1, 20))  # mantém separação leve, sem quebrar página
 
     if modo in ["COMPLETO", "AUDIT"]:
         montar_tabela(df_audit, "AUDIT")
@@ -300,7 +292,6 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
     buffer.seek(0)
 
     return buffer
-
 
 # ==========================
 # RENDER
