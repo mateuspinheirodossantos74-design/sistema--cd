@@ -232,10 +232,10 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
                 1.2,  # filial
                 2.0,  # olpn
                 1.6,  # item
-                7.4,  # descrição
+                7.2,  # descrição
                 2.0,  # local
                 1.2,  # qtde
-                2.0,  # status
+                1.8,  # status
                 1.0,  # box
                 2.0,  # conferente
             ]
