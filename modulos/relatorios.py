@@ -202,7 +202,7 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
                 )
             )
 
-            elements.append(Spacer(1, 6))
+            elements.append(Spacer(1, 4))
 
             data = [chunk.columns.tolist()] + chunk.values.tolist()
 
