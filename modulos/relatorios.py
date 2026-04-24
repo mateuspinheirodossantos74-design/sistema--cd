@@ -218,21 +218,21 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
             data = [chunk.columns.tolist()] + chunk.values.tolist()
 
             # ==========================
-            # AJUSTE CORRETO DAS COLUNAS (FIX AUDIT CORTANDO)
+            # 🔧 AJUSTE CORRETO (SEM MISTURAR COLUNAS)
             # ==========================
             n_cols = len(chunk.columns)
 
             base_widths = [
                 1.2 * cm,
                 1.6 * cm,
-                2.8 * cm,
+                2.6 * cm,
                 2.0 * cm,
-                8.5 * cm,
+                7.8 * cm,
                 2.2 * cm,
-                1.6 * cm,
-                2.4 * cm,
-                1.5 * cm,
-                2.5 * cm,
+                1.4 * cm,
+                2.2 * cm,
+                1.4 * cm,
+                3.2 * cm,   # conferente maior (CORREÇÃO PRINCIPAL)
             ]
 
             if n_cols > len(base_widths):
@@ -258,8 +258,13 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
 
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+
+                # 🔥 CORREÇÃO IMPORTANTE DE ALINHAMENTO
+                ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+
+                ("ALIGN", (0, 1), (3, -1), "CENTER"),
                 ("ALIGN", (4, 1), (4, -1), "LEFT"),
+                ("ALIGN", (5, 1), (9, -1), "CENTER"),
 
                 ("TOPPADDING", (0, 0), (-1, -1), 6),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
