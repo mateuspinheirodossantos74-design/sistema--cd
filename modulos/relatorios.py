@@ -223,7 +223,7 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
 
             weights = [
                 1.0, 0.9, 1.6, 1.4, 7.2,
-                1.8, 1.3, 1.8, 1.2, 2.2
+                1.8, 1.3, 1.8, 1.2, 2.0
             ]
 
             n_cols = len(chunk.columns)
