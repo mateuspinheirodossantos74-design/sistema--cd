@@ -87,25 +87,17 @@ def carregar_dados():
 
         conn.close()
 
-        df["wave"] = (
-            df["wave"]
-            .astype(str)
-            .str.strip()
-            .str.upper()
-        )
+        df["wave"] = df["wave"].astype(str).str.strip().str.upper()
+        df_demanda["wave"] = df_demanda["wave"].astype(str).str.strip().str.upper()
 
-        df_demanda["wave"] = (
-            df_demanda["wave"]
-            .astype(str)
-            .str.strip()
-            .str.upper()
-        )
+        # ==========================
+        # 🔥 MERGE GARANTIDO (ESSENCIAL)
+        # ==========================
+        df = df.merge(df_demanda, on="wave", how="left")
 
-        df = df.merge(
-            df_demanda,
-            on="wave",
-            how="left"
-        )
+        # proteção caso não venha nada
+        if "demanda" not in df.columns:
+            df["demanda"] = None
 
         df["tipo_pedido"] = (
             df["tipo_pedido"]
@@ -199,10 +191,6 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
 
         total_linhas = len(df)
 
-        # ==========================
-        # MANTÉM SUA LÓGICA DE CHUNK
-        # (SEM MEXER NA ESTRUTURA)
-        # ==========================
         for start in range(0, total_linhas, PDF_LIMIT):
 
             chunk = df.iloc[start:start + PDF_LIMIT]
@@ -271,11 +259,6 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
             elements.append(table)
             elements.append(Spacer(1, 10))
 
-            # ==========================
-            # ❌ REMOVIDO: PageBreak FORÇADO
-            # ==========================
-            # ISSO ERA O PROBLEMA DO "UMA FOLHA POR RELATÓRIO"
-
     # ==========================
     # ORDEM ORIGINAL MANTIDA
     # ==========================
@@ -283,7 +266,7 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
         montar_tabela(df_packed, "PACKED")
 
     if modo == "COMPLETO":
-        elements.append(Spacer(1, 20))  # mantém separação leve, sem quebrar página
+        elements.append(Spacer(1, 20))
 
     if modo in ["COMPLETO", "AUDIT"]:
         montar_tabela(df_audit, "AUDIT")
@@ -292,6 +275,7 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
     buffer.seek(0)
 
     return buffer
+
 
 # ==========================
 # RENDER
@@ -309,12 +293,11 @@ def render():
 
     st.sidebar.header("🔎 Filtros")
 
-    conferente_sel = st.sidebar.selectbox(
-        "Conferente",
-        sorted(df["conferente"].dropna().unique())
-    )
-
-    df = df[df["conferente"] == conferente_sel]
+    # ==========================
+    # DEMANDA (CORRIGIDO)
+    # ==========================
+    if "demanda" not in df.columns:
+        df["demanda"] = "SEM DEMANDA"
 
     demandas = sorted(df["demanda"].dropna().unique().tolist())
 
@@ -325,6 +308,16 @@ def render():
 
     if demanda_sel != "Todas":
         df = df[df["demanda"] == demanda_sel]
+
+    # ==========================
+    # CONFERENTE (DEPOIS)
+    # ==========================
+    conferente_sel = st.sidebar.selectbox(
+        "Conferente",
+        sorted(df["conferente"].dropna().unique())
+    )
+
+    df = df[df["conferente"] == conferente_sel]
 
     status_packed = st.sidebar.multiselect(
         "Status oLPN",
@@ -356,22 +349,8 @@ def render():
     with aba1:
         st.dataframe(df_packed, use_container_width=True)
 
-        st.markdown(f"""
-        **📊 Resumo PACKED**
-        - Total de registros: {len(df_packed)}
-        - Total de peças: {df_packed['qtde_pecas_item'].sum():,.0f}
-        - 🔢 Contador final: {len(df_packed)}
-        """)
-
     with aba2:
         st.dataframe(df_audit, use_container_width=True)
-
-        st.markdown(f"""
-        **📊 Resumo AUDIT**
-        - Total de registros: {len(df_audit)}
-        - Total de peças: {df_audit['qtde_pecas_item'].sum():,.0f}
-        - 🔢 Contador final: {len(df_audit)}
-        """)
 
     st.markdown("---")
 
@@ -380,29 +359,14 @@ def render():
     with col1:
         if st.button("📦 PACKED"):
             pdf = gerar_pdf(df_packed, df_audit, "PACKED", conferente_sel)
-
-            st.download_button(
-                "Baixar PDF PACKED",
-                pdf,
-                f"{nome_base}_packed.pdf"
-            )
+            st.download_button("Baixar PDF PACKED", pdf, f"{nome_base}_packed.pdf")
 
     with col2:
         if st.button("🧾 AUDIT"):
             pdf = gerar_pdf(df_packed, df_audit, "AUDIT", conferente_sel)
-
-            st.download_button(
-                "Baixar PDF AUDIT",
-                pdf,
-                f"{nome_base}_audit.pdf"
-            )
+            st.download_button("Baixar PDF AUDIT", pdf, f"{nome_base}_audit.pdf")
 
     with col3:
         if st.button("📄 COMPLETO"):
             pdf = gerar_pdf(df_packed, df_audit, "COMPLETO", conferente_sel)
-
-            st.download_button(
-                "Baixar PDF COMPLETO",
-                pdf,
-                f"{nome_base}_completo.pdf"
-            )
+            st.download_button("Baixar PDF COMPLETO", pdf, f"{nome_base}_completo.pdf")
