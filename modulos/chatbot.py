@@ -3,6 +3,11 @@ import re
 from datetime import datetime, timedelta
 from difflib import get_close_matches
 from modulos.conexao import get_connection
+from openai import OpenAI
+import os
+
+# 🔐 OpenAI via Streamlit Secrets
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 
 # ==========================
@@ -24,7 +29,7 @@ def executar_query(query, params=None):
 
 
 # ==========================
-# CACHE DE VALORES (CORRIGIDO)
+# CACHE DE VALORES
 # ==========================
 @st.cache_data(ttl=300)
 def get_valores(coluna):
@@ -34,10 +39,8 @@ def get_valores(coluna):
 
         if coluna == "setor":
             cursor.execute("SELECT DISTINCT setor FROM mapa_box_setor")
-
         elif coluna == "demanda":
             cursor.execute("SELECT DISTINCT demanda FROM demanda")
-
         else:
             cursor.execute(f"SELECT DISTINCT {coluna} FROM base_operacional")
 
@@ -53,7 +56,7 @@ def get_valores(coluna):
 
 
 # ==========================
-# INTERPRETADOR DE PERGUNTA
+# INTERPRETADOR
 # ==========================
 def interpretar(pergunta):
     pergunta = pergunta.lower()
@@ -101,7 +104,7 @@ def interpretar(pergunta):
             filtros["params"].append(d)
             break
 
-    # INTENÇÃO
+    # STATUS
     mapa = {
         "falta": "Created",
         "coletar": "Created",
@@ -120,10 +123,64 @@ def interpretar(pergunta):
 
 
 # ==========================
+# DECISÃO: SISTEMA OU IA
+# ==========================
+def eh_pergunta_sistema(filtros):
+    return (
+        filtros["status"] is not None
+        or len(filtros["where"]) > 0
+    )
+
+
+# ==========================
+# RESPOSTA IA
+# ==========================
+def responder_ia(pergunta):
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Você é um assistente amigável e direto."},
+                {"role": "user", "content": pergunta}
+            ]
+        )
+        return response.choices[0].message.content
+
+    except Exception:
+        return "Ainda não estou conectado à IA 😅 mas posso te ajudar com dados do sistema!"
+
+
+
+# ==========================
+# RESPOSTAS HUMANAS
+# ==========================
+def resposta_humana(pergunta):
+    pergunta = pergunta.lower()
+
+    if pergunta in ["oi", "olá", "ola", "bom dia", "boa tarde", "boa noite"]:
+        return "Fala! 👋 Posso te ajudar com algo do CD?"
+
+    if "tudo bem" in pergunta:
+        return "Tudo certo por aqui 😄 e contigo?"
+
+    return None
+
+
+# ==========================
 # GERAR RESPOSTA
 # ==========================
 def responder(pergunta):
+
+    # 👇 RESPOSTA HUMANA PRIMEIRO
+    resp_humana = resposta_humana(pergunta)
+    if resp_humana:
+        return resp_humana
+
     filtros = interpretar(pergunta)
+
+    # 👇 DECISÃO
+    if not eh_pergunta_sistema(filtros):
+        return responder_ia(pergunta)
 
     where_sql = " AND ".join(filtros["where"])
     where_sql = f"WHERE {where_sql}" if where_sql else ""
@@ -131,7 +188,7 @@ def responder(pergunta):
     params = filtros["params"]
 
     # ==========================
-    # CONSULTA PRINCIPAL (COM JOIN)
+    # CONSULTA COM STATUS
     # ==========================
     if filtros["status"]:
         query = f"""
@@ -157,7 +214,7 @@ Se quiser, posso detalhar mais 👀
 """.replace(",", ".")
 
     # ==========================
-    # RESUMO GERAL (COM JOIN)
+    # RESUMO GERAL
     # ==========================
     query = f"""
     SELECT 
@@ -193,7 +250,7 @@ Se quiser, posso detalhar mais 👀
 # INTERFACE
 # ==========================
 def render():
-    st.title("🤖 Assistente Inteligente do CD (modo avançado)")
+    st.title("🤖 Assistente Inteligente do CD")
 
     if "chat" not in st.session_state:
         st.session_state.chat = []
