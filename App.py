@@ -8,7 +8,8 @@ from modulos import (
     chatbot,
     gestao_usuarios,
     inserir_demanda,
-    relatorios  # 👈 ADICIONADO
+    relatorios,# 👈 ADICIONADO
+    produtividade
 )
 
 from modulos.style import aplicar_estilo
@@ -72,7 +73,7 @@ with st.sidebar:
         "📋 Visão Geral": visao.render,
         "📦 Tarefas": tarefas.render,
         "📊 Dashboard": lambda: st.info("Módulo em desenvolvimento..."),
-        "📈 Produtividade": lambda: st.info("Módulo em desenvolvimento..."),
+        "📈 Produtividade": produtividade.render,
         "🤖 Chatbot": chatbot.render,
         "💡 Sugestões": lambda: st.info("Módulo em desenvolvimento..."),
         "📄 Relatórios": relatorios.render  # 👈 AQUI
