@@ -1,0 +1,9 @@
+﻿streamlit
+pandas
+mysql-connector-python
+python-dotenv
+bcrypt
+streamlit-autorefresh
+openpyxl
+reportlab
+openai
