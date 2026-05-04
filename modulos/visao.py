@@ -18,13 +18,16 @@ def carregar_dados():
     try:
         df = pd.read_sql("""
             SELECT 
-                box,
-                wave,
-                status_olpn,
-                qtde_pecas_item,
-                data_limite_expedicao,
-                audit_status
-            FROM base_operacional
+                bo.box,
+                bo.wave,
+                bo.status_olpn,
+                bo.qtde_pecas_item,
+                bo.data_limite_expedicao,
+                bo.audit_status,
+                c.conferente
+            FROM base_operacional bo
+            LEFT JOIN conferentes c
+                ON bo.box = c.box
         """, get_connection())
 
         df_setores = pd.read_sql("""
@@ -42,8 +45,6 @@ def carregar_dados():
         return pd.DataFrame(), pd.DataFrame()
 
 
-
-    # ❌ NÃO FECHAR CONEXÃO (cache_resource)
 
     for col in ["box", "wave"]:
         if col not in df.columns:
@@ -84,16 +85,41 @@ def render():
         st.cache_data.clear()
         st.rerun()
 
-    st.sidebar.subheader("Filtro por Setor")
-
     df, df_demandas = carregar_dados()
 
     if df.empty:
         st.warning("⏳ Sem dados disponíveis.")
         st.stop()
 
+    # ==========================
+    # 🔥 NOVO FILTRO CONFERENTE
+    # ==========================
+    st.sidebar.subheader("Filtro por Conferente")
+
+    conferentes = sorted(df["conferente"].dropna().unique().tolist())
+
+    if not conferentes:
+        st.warning("Nenhum conferente encontrado")
+        st.stop()
+
+    conferente_sel = st.sidebar.selectbox(
+        "Conferente:",
+        conferentes
+    )
+
+    df = df[df["conferente"] == conferente_sel]
+
+    if df.empty:
+        st.warning("Nenhum dado para esse conferente.")
+        st.stop()
+
+    # ==========================
+    # SETOR
+    # ==========================
+    st.sidebar.subheader("Filtro por Setor")
+
     setores = sorted(df["setor"].dropna().unique().tolist()) if "setor" in df.columns else []
-    setores_sel = st.sidebar.multiselect("Setor:", setores,)
+    setores_sel = st.sidebar.multiselect("Setor:", setores)
 
     if not setores_sel:
         st.warning("selecione pelo menos um setor")
@@ -149,7 +175,7 @@ def render():
     df_par = df[df["demanda"] == demanda_par] if demanda_par != "— Nenhuma seleção —" else df.iloc[0:0]
 
     # ==========================
-    # TOPO
+    # RESTANTE DO CÓDIGO (INALTERADO)
     # ==========================
     col_l, col_c, col_r = st.columns([1.5, 3, 1.5])
 
@@ -162,9 +188,6 @@ def render():
 
     st.markdown("<div style='margin-top:-10px'></div>", unsafe_allow_html=True)
 
-    # ==========================
-    # CARD
-    # ==========================
     def fmt(v):
         return f"{int(v):,}".replace(",", ".")
 
@@ -188,9 +211,6 @@ def render():
         </div>
         """, unsafe_allow_html=True)
 
-    # ==========================
-    # SALÃO
-    # ==========================
     def resumo(df_local):
         return df_local.groupby("status_olpn")["qtde_pecas_item"].sum()
 
@@ -222,9 +242,6 @@ def render():
 
     card(cols[4], "Total Geral", df_salao["qtde_pecas_item"].sum(), "black")
 
-    # ==========================
-    # P.A.R
-    # ==========================
     st.markdown("<div style='margin-top:-15px'></div>", unsafe_allow_html=True)
     st.markdown("<h1 style='text-align:center;margin-bottom:0;'>P.A.R</h1>", unsafe_allow_html=True)
 
@@ -236,9 +253,6 @@ def render():
 
     card(cols[4], "Total Geral", df_par["qtde_pecas_item"].sum(), "black")
 
-    # ==========================
-    # AUDIT
-    # ==========================
     st.markdown("<div style='margin-top:-15px'></div>", unsafe_allow_html=True)
     st.markdown("<h1 style='text-align:center;margin-bottom:0;'>AUDIT</h1>", unsafe_allow_html=True)
 
