@@ -44,8 +44,6 @@ def carregar_dados():
         st.error(f"Erro ao carregar dados: {e}")
         return pd.DataFrame(), pd.DataFrame()
 
-
-
     for col in ["box", "wave"]:
         if col not in df.columns:
             df[col] = None
@@ -92,7 +90,7 @@ def render():
         st.stop()
 
     # ==========================
-    # 🔥 NOVO FILTRO CONFERENTE
+    # 🔥 FILTRO CONFERENTE (MULTI + TODOS)
     # ==========================
     st.sidebar.subheader("Filtro por Conferente")
 
@@ -102,15 +100,17 @@ def render():
         st.warning("Nenhum conferente encontrado")
         st.stop()
 
-    conferente_sel = st.sidebar.selectbox(
+    conferente_sel = st.sidebar.multiselect(
         "Conferente:",
-        conferentes
+        ["Todos"] + conferentes,
+        default=["Todos"]
     )
 
-    df = df[df["conferente"] == conferente_sel]
+    if "Todos" not in conferente_sel:
+        df = df[df["conferente"].isin(conferente_sel)]
 
     if df.empty:
-        st.warning("Nenhum dado para esse conferente.")
+        st.warning("Nenhum dado para os conferentes selecionados.")
         st.stop()
 
     # ==========================
