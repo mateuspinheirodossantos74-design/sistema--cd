@@ -91,7 +91,7 @@ def carregar_dados():
         df_demanda["wave"] = df_demanda["wave"].astype(str).str.strip().str.upper()
 
         # ==========================
-        # 🔥 MERGE GARANTIDO (ESSENCIAL)
+        # 🔥 MERGE GARANTIDO
         # ==========================
         df = df.merge(df_demanda, on="wave", how="left")
 
@@ -202,8 +202,6 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
                 )
             )
 
-            
-
             data = [chunk.columns.tolist()] + chunk.values.tolist()
 
             page_width = landscape(A4)[0]
@@ -294,7 +292,7 @@ def render():
     st.sidebar.header("🔎 Filtros")
 
     # ==========================
-    # DEMANDA (CORRIGIDO)
+    # DEMANDA
     # ==========================
     if "demanda" not in df.columns:
         df["demanda"] = "SEM DEMANDA"
@@ -310,7 +308,7 @@ def render():
         df = df[df["demanda"] == demanda_sel]
 
     # ==========================
-    # CONFERENTE (DEPOIS)
+    # CONFERENTE
     # ==========================
     conferente_sel = st.sidebar.selectbox(
         "Conferente",
@@ -319,6 +317,22 @@ def render():
 
     df = df[df["conferente"] == conferente_sel]
 
+    # ==========================
+    # BOX
+    # ==========================
+    boxes = sorted(df["box"].dropna().astype(str).unique())
+
+    box_sel = st.sidebar.multiselect(
+        "Box",
+        boxes,
+        default=boxes
+    )
+
+    df = df[df["box"].astype(str).isin(box_sel)]
+
+    # ==========================
+    # STATUS
+    # ==========================
     status_packed = st.sidebar.multiselect(
         "Status oLPN",
         sorted(df["status_olpn"].dropna().unique()),
@@ -333,14 +347,35 @@ def render():
 
     df_base = df.copy()
 
-    df_packed = df_base[df_base["status_olpn"].isin(status_packed)][COLUNAS].copy()
-    df_audit = df_base[df_base["audit_status"].isin(status_audit)][COLUNAS_AUDIT].copy()
+    df_packed = df_base[
+        df_base["status_olpn"].isin(status_packed)
+    ][COLUNAS].copy()
 
-    df_packed["box_num"] = pd.to_numeric(df_packed["box"], errors="coerce")
-    df_audit["box_num"] = pd.to_numeric(df_audit["box"], errors="coerce")
+    df_audit = df_base[
+        df_base["audit_status"].isin(status_audit)
+    ][COLUNAS_AUDIT].copy()
 
-    df_packed = df_packed.sort_values(by=["box_num", "olpn"]).drop(columns=["box_num"])
-    df_audit = df_audit.sort_values(by=["box_num", "olpn"]).drop(columns=["box_num"])
+    df_packed["box_num"] = pd.to_numeric(
+        df_packed["box"],
+        errors="coerce"
+    )
+
+    df_audit["box_num"] = pd.to_numeric(
+        df_audit["box"],
+        errors="coerce"
+    )
+
+    df_packed = (
+        df_packed
+        .sort_values(by=["box_num", "olpn"])
+        .drop(columns=["box_num"])
+    )
+
+    df_audit = (
+        df_audit
+        .sort_values(by=["box_num", "olpn"])
+        .drop(columns=["box_num"])
+    )
 
     nome_base = limpar_nome_arquivo(conferente_sel)
 
@@ -358,15 +393,45 @@ def render():
 
     with col1:
         if st.button("📦 PACKED"):
-            pdf = gerar_pdf(df_packed, df_audit, "PACKED", conferente_sel)
-            st.download_button("Baixar PDF PACKED", pdf, f"{nome_base}_packed.pdf")
+            pdf = gerar_pdf(
+                df_packed,
+                df_audit,
+                "PACKED",
+                conferente_sel
+            )
+
+            st.download_button(
+                "Baixar PDF PACKED",
+                pdf,
+                f"{nome_base}_packed.pdf"
+            )
 
     with col2:
         if st.button("🧾 AUDIT"):
-            pdf = gerar_pdf(df_packed, df_audit, "AUDIT", conferente_sel)
-            st.download_button("Baixar PDF AUDIT", pdf, f"{nome_base}_audit.pdf")
+            pdf = gerar_pdf(
+                df_packed,
+                df_audit,
+                "AUDIT",
+                conferente_sel
+            )
+
+            st.download_button(
+                "Baixar PDF AUDIT",
+                pdf,
+                f"{nome_base}_audit.pdf"
+            )
 
     with col3:
         if st.button("📄 COMPLETO"):
-            pdf = gerar_pdf(df_packed, df_audit, "COMPLETO", conferente_sel)
-            st.download_button("Baixar PDF COMPLETO", pdf, f"{nome_base}_completo.pdf")
+            pdf = gerar_pdf(
+                df_packed,
+                df_audit,
+                "COMPLETO",
+                conferente_sel
+            )
+
+            st.download_button(
+                "Baixar PDF COMPLETO",
+                pdf,
+                f"{nome_base}_completo.pdf"
+            )
