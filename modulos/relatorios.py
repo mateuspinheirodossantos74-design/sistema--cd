@@ -340,8 +340,6 @@ def render():
         default=itens
     )
 
-    df = df[df["item"].astype(str).isin(item_sel)]
-
     # ==========================
     # STATUS
     # ==========================
@@ -357,7 +355,12 @@ def render():
         default=sorted(df["audit_status"].dropna().unique())
     )
 
-    df_base = df.copy()
+    # ==========================
+    # BASE FINAL
+    # ==========================
+    df_base = df[
+        df["item"].astype(str).isin(item_sel)
+    ].copy()
 
     df_packed = df_base[
         df_base["status_olpn"].isin(status_packed)
