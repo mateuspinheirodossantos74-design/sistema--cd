@@ -199,7 +199,7 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
 
             elements.append(
                 Paragraph(
-                    f"{titulo} - {conferente}".upper(),
+                    f"{titulo} - RELATORIO".upper(),
                     styles["Heading2"]
                 )
             )
@@ -278,6 +278,7 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
 # RENDER
 # ==========================
 def render():
+
     st.title("📄 Relatório de Pendências por Conferente")
 
     df = carregar_dados()
@@ -309,12 +310,20 @@ def render():
     # ==========================
     # CONFERENTE
     # ==========================
-    conferente_sel = st.sidebar.selectbox(
-        "Conferente",
-        sorted(df["conferente"].dropna().unique())
+    conferentes = sorted(
+        df["conferente"]
+        .dropna()
+        .unique()
+        .tolist()
     )
 
-    df = df[df["conferente"] == conferente_sel]
+    conferente_sel = st.sidebar.multiselect(
+        "Conferente",
+        conferentes,
+        default=conferentes
+    )
+
+    df = df[df["conferente"].isin(conferente_sel)]
 
     # ==========================
     # BOX
@@ -394,7 +403,7 @@ def render():
         .drop(columns=["box_num"])
     )
 
-    nome_base = limpar_nome_arquivo(conferente_sel)
+    nome_base = "relatorio_conferentes"
 
     aba1, aba2 = st.tabs(["📦 Packed", "🧾 Audit"])
 
@@ -414,7 +423,7 @@ def render():
                 df_packed,
                 df_audit,
                 "PACKED",
-                conferente_sel
+                "RELATORIO"
             )
 
             st.download_button(
@@ -429,7 +438,7 @@ def render():
                 df_packed,
                 df_audit,
                 "AUDIT",
-                conferente_sel
+                "RELATORIO"
             )
 
             st.download_button(
@@ -444,7 +453,7 @@ def render():
                 df_packed,
                 df_audit,
                 "COMPLETO",
-                conferente_sel
+                "RELATORIO"
             )
 
             st.download_button(
