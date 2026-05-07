@@ -29,11 +29,14 @@ PDF_LIMIT = 80
 # AUXILIAR
 # ==========================
 def limpar_nome_arquivo(nome):
+
     if not nome:
         return "relatorio"
 
     nome = str(nome).strip()
+
     nome = re.sub(r"[^\w\s-]", "", nome)
+
     nome = nome.replace(" ", "_")
 
     return nome
@@ -43,10 +46,15 @@ def limpar_nome_arquivo(nome):
 # PREPARAÇÃO PDF
 # ==========================
 def preparar_df_pdf(df):
+
     df = df.copy()
 
     if "descricao" in df.columns:
-        df["descricao"] = df["descricao"].fillna("").astype(str)
+        df["descricao"] = (
+            df["descricao"]
+            .fillna("")
+            .astype(str)
+        )
 
     return df
 
@@ -56,7 +64,9 @@ def preparar_df_pdf(df):
 # ==========================
 @st.cache_data(ttl=300)
 def carregar_dados():
+
     try:
+
         conn = get_connection()
 
         query = """
@@ -87,13 +97,28 @@ def carregar_dados():
 
         conn.close()
 
-        df["wave"] = df["wave"].astype(str).str.strip().str.upper()
-        df_demanda["wave"] = df_demanda["wave"].astype(str).str.strip().str.upper()
+        df["wave"] = (
+            df["wave"]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )
+
+        df_demanda["wave"] = (
+            df_demanda["wave"]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )
 
         # ==========================
         # MERGE DEMANDA
         # ==========================
-        df = df.merge(df_demanda, on="wave", how="left")
+        df = df.merge(
+            df_demanda,
+            on="wave",
+            how="left"
+        )
 
         if "demanda" not in df.columns:
             df["demanda"] = None
@@ -108,7 +133,9 @@ def carregar_dados():
         return df
 
     except Exception as e:
+
         st.error(f"Erro ao carregar dados: {e}")
+
         return pd.DataFrame()
 
 
@@ -149,6 +176,7 @@ MAPA_COLUNAS = {
 # AUDIT
 # ==========================
 def tratar_audit(df):
+
     df["audit_status"] = (
         df["audit_status"]
         .astype(str)
@@ -184,11 +212,13 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
     )
 
     styles = getSampleStyleSheet()
+
     elements = []
 
     def montar_tabela(df, titulo):
 
         df = df.rename(columns=MAPA_COLUNAS).copy()
+
         df = preparar_df_pdf(df)
 
         total_linhas = len(df)
@@ -199,25 +229,38 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
 
             elements.append(
                 Paragraph(
-                    f"{titulo} - RELATORIO".upper(),
+                    f"{titulo} - {conferente}".upper(),
                     styles["Heading2"]
                 )
             )
 
-            data = [chunk.columns.tolist()] + chunk.values.tolist()
+            data = [
+                chunk.columns.tolist()
+            ] + chunk.values.tolist()
 
             page_width = landscape(A4)[0]
+
             usable_width = page_width - 1.0 * cm
 
             weights = [
-                1.0, 0.9, 1.6, 1.4, 7.2,
-                1.8, 1.3, 1.4, 1.2, 2.0
+                1.0,
+                0.9,
+                1.6,
+                1.4,
+                7.2,
+                1.8,
+                1.3,
+                1.4,
+                1.2,
+                2.0
             ]
 
             n_cols = len(chunk.columns)
 
             if n_cols > len(weights):
-                weights += [2.2] * (n_cols - len(weights))
+                weights += [2.2] * (
+                    n_cols - len(weights)
+                )
 
             weights = weights[:n_cols]
 
@@ -235,12 +278,15 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
             )
 
             table.setStyle(TableStyle([
+
                 ("BACKGROUND", (0, 0), (-1, 0), colors.black),
+
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
 
                 ("GRID", (0, 0), (-1, -1), 0.35, colors.black),
 
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+
                 ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
 
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
@@ -250,13 +296,17 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
 
                 ("ALIGN", (4, 1), (4, -1), "LEFT"),
+
                 ("ALIGN", (5, 1), (-1, -1), "CENTER"),
 
                 ("TOPPADDING", (0, 0), (-1, -1), 2),
+
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+
             ]))
 
             elements.append(table)
+
             elements.append(Spacer(1, 4))
 
     if modo in ["COMPLETO", "PACKED"]:
@@ -269,6 +319,7 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
         montar_tabela(df_audit, "AUDIT")
 
     doc.build(elements)
+
     buffer.seek(0)
 
     return buffer
@@ -297,7 +348,12 @@ def render():
     if "demanda" not in df.columns:
         df["demanda"] = "SEM DEMANDA"
 
-    demandas = sorted(df["demanda"].dropna().unique().tolist())
+    demandas = sorted(
+        df["demanda"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
 
     demanda_sel = st.sidebar.selectbox(
         "Demanda",
@@ -305,11 +361,15 @@ def render():
     )
 
     if demanda_sel != "Todas":
-        df = df[df["demanda"] == demanda_sel]
+        df = df[
+            df["demanda"] == demanda_sel
+        ]
 
     # ==========================
     # CONFERENTE
     # ==========================
+    st.sidebar.subheader("Conferente")
+
     conferentes = sorted(
         df["conferente"]
         .dropna()
@@ -317,18 +377,46 @@ def render():
         .tolist()
     )
 
-    conferente_sel = st.sidebar.multiselect(
-        "Conferente",
-        conferentes,
-        default=conferentes
+    select_all_conf = st.sidebar.checkbox(
+        "Selecionar Todos",
+        value=True
     )
 
-    df = df[df["conferente"].isin(conferente_sel)]
+    if select_all_conf:
+
+        conferente_sel = st.sidebar.multiselect(
+            "Conferente",
+            conferentes,
+            default=conferentes
+        )
+
+    else:
+
+        conferente_sel = st.sidebar.multiselect(
+            "Conferente",
+            conferentes
+        )
+
+    if conferente_sel:
+
+        df = df[
+            df["conferente"]
+            .isin(conferente_sel)
+        ]
+
+    else:
+
+        df = df.iloc[0:0]
 
     # ==========================
     # BOX
     # ==========================
-    boxes = sorted(df["box"].dropna().astype(str).unique())
+    boxes = sorted(
+        df["box"]
+        .dropna()
+        .astype(str)
+        .unique()
+    )
 
     box_sel = st.sidebar.multiselect(
         "Box",
@@ -336,7 +424,11 @@ def render():
         default=boxes
     )
 
-    df = df[df["box"].astype(str).isin(box_sel)]
+    df = df[
+        df["box"]
+        .astype(str)
+        .isin(box_sel)
+    ]
 
     # ==========================
     # ITEM
@@ -351,14 +443,30 @@ def render():
     # ==========================
     status_packed = st.sidebar.multiselect(
         "Status oLPN",
-        sorted(df["status_olpn"].dropna().unique()),
-        default=sorted(df["status_olpn"].dropna().unique())
+        sorted(
+            df["status_olpn"]
+            .dropna()
+            .unique()
+        ),
+        default=sorted(
+            df["status_olpn"]
+            .dropna()
+            .unique()
+        )
     )
 
     status_audit = st.sidebar.multiselect(
         "Status Audit",
-        sorted(df["audit_status"].dropna().unique()),
-        default=sorted(df["audit_status"].dropna().unique())
+        sorted(
+            df["audit_status"]
+            .dropna()
+            .unique()
+        ),
+        default=sorted(
+            df["audit_status"]
+            .dropna()
+            .unique()
+        )
     )
 
     # ==========================
@@ -367,18 +475,25 @@ def render():
     df_base = df.copy()
 
     if item_busca:
+
         df_base = df_base[
             df_base["item"]
             .astype(str)
-            .str.contains(item_busca, case=False, na=False)
+            .str.contains(
+                item_busca,
+                case=False,
+                na=False
+            )
         ]
 
     df_packed = df_base[
-        df_base["status_olpn"].isin(status_packed)
+        df_base["status_olpn"]
+        .isin(status_packed)
     ][COLUNAS].copy()
 
     df_audit = df_base[
-        df_base["audit_status"].isin(status_audit)
+        df_base["audit_status"]
+        .isin(status_audit)
     ][COLUNAS_AUDIT].copy()
 
     df_packed["box_num"] = pd.to_numeric(
@@ -393,37 +508,73 @@ def render():
 
     df_packed = (
         df_packed
-        .sort_values(by=["box_num", "olpn"])
+        .sort_values(
+            by=["box_num", "olpn"]
+        )
         .drop(columns=["box_num"])
     )
 
     df_audit = (
         df_audit
-        .sort_values(by=["box_num", "olpn"])
+        .sort_values(
+            by=["box_num", "olpn"]
+        )
         .drop(columns=["box_num"])
     )
 
-    nome_base = "relatorio_conferentes"
+    # ==========================
+    # NOME PDF
+    # ==========================
+    if len(conferente_sel) == 1:
 
-    aba1, aba2 = st.tabs(["📦 Packed", "🧾 Audit"])
+        nome_base = limpar_nome_arquivo(
+            conferente_sel[0]
+        )
+
+        titulo_pdf = conferente_sel[0]
+
+    else:
+
+        nome_base = "multiplos_conferentes"
+
+        titulo_pdf = "MULTIPLOS CONFERENTES"
+
+    # ==========================
+    # TABS
+    # ==========================
+    aba1, aba2 = st.tabs([
+        "📦 Packed",
+        "🧾 Audit"
+    ])
 
     with aba1:
-        st.dataframe(df_packed, use_container_width=True)
+        st.dataframe(
+            df_packed,
+            use_container_width=True
+        )
 
     with aba2:
-        st.dataframe(df_audit, use_container_width=True)
+        st.dataframe(
+            df_audit,
+            use_container_width=True
+        )
 
     st.markdown("---")
 
     col1, col2, col3 = st.columns(3)
 
+    # ==========================
+    # PDF PACKED
+    # ==========================
     with col1:
+
         if st.button("📦 PACKED"):
+
             pdf = gerar_pdf(
                 df_packed,
                 df_audit,
                 "PACKED",
-                "RELATORIO"
+                titulo_pdf
             )
 
             st.download_button(
@@ -432,13 +583,18 @@ def render():
                 f"{nome_base}_packed.pdf"
             )
 
+    # ==========================
+    # PDF AUDIT
+    # ==========================
     with col2:
+
         if st.button("🧾 AUDIT"):
+
             pdf = gerar_pdf(
                 df_packed,
                 df_audit,
                 "AUDIT",
-                "RELATORIO"
+                titulo_pdf
             )
 
             st.download_button(
@@ -447,13 +603,18 @@ def render():
                 f"{nome_base}_audit.pdf"
             )
 
+    # ==========================
+    # PDF COMPLETO
+    # ==========================
     with col3:
+
         if st.button("📄 COMPLETO"):
+
             pdf = gerar_pdf(
                 df_packed,
                 df_audit,
                 "COMPLETO",
-                "RELATORIO"
+                titulo_pdf
             )
 
             st.download_button(
