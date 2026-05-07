@@ -91,11 +91,10 @@ def carregar_dados():
         df_demanda["wave"] = df_demanda["wave"].astype(str).str.strip().str.upper()
 
         # ==========================
-        # 🔥 MERGE GARANTIDO
+        # MERGE DEMANDA
         # ==========================
         df = df.merge(df_demanda, on="wave", how="left")
 
-        # proteção caso não venha nada
         if "demanda" not in df.columns:
             df["demanda"] = None
 
@@ -168,6 +167,9 @@ def tratar_audit(df):
     return df
 
 
+# ==========================
+# PDF
+# ==========================
 def gerar_pdf(df_packed, df_audit, modo, conferente):
 
     buffer = io.BytesIO()
@@ -257,9 +259,6 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
             elements.append(table)
             elements.append(Spacer(1, 4))
 
-    # ==========================
-    # ORDEM ORIGINAL MANTIDA
-    # ==========================
     if modo in ["COMPLETO", "PACKED"]:
         montar_tabela(df_packed, "PACKED")
 
@@ -329,6 +328,19 @@ def render():
     )
 
     df = df[df["box"].astype(str).isin(box_sel)]
+
+    # ==========================
+    # ITEM
+    # ==========================
+    itens = sorted(df["item"].dropna().astype(str).unique())
+
+    item_sel = st.sidebar.multiselect(
+        "Item",
+        itens,
+        default=itens
+    )
+
+    df = df[df["item"].astype(str).isin(item_sel)]
 
     # ==========================
     # STATUS
