@@ -332,12 +332,9 @@ def render():
     # ==========================
     # ITEM
     # ==========================
-    itens = sorted(df["item"].dropna().astype(str).unique())
-
-    item_sel = st.sidebar.multiselect(
-        "Item",
-        itens,
-        default=itens
+    item_busca = st.sidebar.text_input(
+        "Buscar Item",
+        placeholder="Digite o item..."
     )
 
     # ==========================
@@ -358,9 +355,14 @@ def render():
     # ==========================
     # BASE FINAL
     # ==========================
-    df_base = df[
-        df["item"].astype(str).isin(item_sel)
-    ].copy()
+    df_base = df.copy()
+
+    if item_busca:
+        df_base = df_base[
+            df_base["item"]
+            .astype(str)
+            .str.contains(item_busca, case=False, na=False)
+        ]
 
     df_packed = df_base[
         df_base["status_olpn"].isin(status_packed)
