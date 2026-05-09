@@ -18,13 +18,16 @@ def carregar_dados():
     try:
         df = pd.read_sql("""
             SELECT 
-                box,
-                wave,
-                status_olpn,
-                qtde_pecas_item,
-                data_limite_expedicao,
-                audit_status
-            FROM base_operacional
+                bo.box,
+                bo.wave,
+                bo.status_olpn,
+                bo.qtde_pecas_item,
+                bo.data_limite_expedicao,
+                bo.audit_status,
+                c.conferente
+            FROM base_operacional bo
+            LEFT JOIN conferentes c
+                ON bo.box = c.box
         """, get_connection())
 
         df_setores = pd.read_sql("""
@@ -40,8 +43,6 @@ def carregar_dados():
     except Exception as e:
         st.error(f"Erro ao carregar dados: {e}")
         return pd.DataFrame(), pd.DataFrame()
-
-
 
     # ❌ NÃO FECHAR CONEXÃO (cache_resource)
 
@@ -65,7 +66,10 @@ def carregar_dados():
         df["demanda"] = None
 
     if "data_limite_expedicao" in df.columns:
-        df["data_limite_expedicao"] = pd.to_datetime(df["data_limite_expedicao"], errors="coerce")
+        df["data_limite_expedicao"] = pd.to_datetime(
+            df["data_limite_expedicao"],
+            errors="coerce"
+        )
 
     return df, df_demandas
 
@@ -92,15 +96,54 @@ def render():
         st.warning("⏳ Sem dados disponíveis.")
         st.stop()
 
-    setores = sorted(df["setor"].dropna().unique().tolist()) if "setor" in df.columns else []
-    setores_sel = st.sidebar.multiselect("Setor:", setores,)
+    # ==========================
+    # CONFERENTE
+    # ==========================
+    st.sidebar.subheader("Filtro por Conferente")
+
+    conferentes = sorted(
+        df["conferente"]
+        .dropna()
+        .astype(str)
+        .unique()
+        .tolist()
+    )
+
+    conferente_sel = st.sidebar.multiselect(
+        "Conferente:",
+        conferentes,
+        default=conferentes
+    )
+
+    if conferente_sel:
+        df = df[df["conferente"].astype(str).isin(conferente_sel)]
+
+    if df.empty:
+        st.warning("Nenhum dado para os conferentes selecionados.")
+        st.stop()
+
+    # ==========================
+    # SETOR
+    # ==========================
+    setores = sorted(
+        df["setor"].dropna().unique().tolist()
+    ) if "setor" in df.columns else []
+
+    setores_sel = st.sidebar.multiselect(
+        "Setor:",
+        setores,
+    )
 
     if not setores_sel:
         st.warning("selecione pelo menos um setor")
         st.stop()
 
     if "setor" in df.columns:
-        df = df[df["setor"].fillna("SEM_SETOR").isin(setores_sel)]
+        df = df[
+            df["setor"]
+            .fillna("SEM_SETOR")
+            .isin(setores_sel)
+        ]
 
     if df.empty:
         st.warning("Nenhum dado após filtro de setor.")
@@ -118,7 +161,10 @@ def render():
         max_value=data_max
     )
 
-    data_inicio, data_fim = datas if isinstance(datas, (list, tuple)) else (datas, datas)
+    data_inicio, data_fim = (
+        datas if isinstance(datas, (list, tuple))
+        else (datas, datas)
+    )
 
     data_inicio = pd.to_datetime(data_inicio)
     data_fim = pd.to_datetime(data_fim)
@@ -136,17 +182,37 @@ def render():
     # DEMANDA
     # ==========================
     demanda_lista = ["— Nenhuma seleção —"] + sorted(
-        df_demandas["demanda"].dropna().unique().tolist()
+        df_demandas["demanda"]
+        .dropna()
+        .unique()
+        .tolist()
     ) if "demanda" in df_demandas.columns else ["— Nenhuma seleção —"]
 
     st.sidebar.subheader("Filtros — Salão")
-    demanda_salao = st.sidebar.selectbox("Demanda Salão:", demanda_lista)
+
+    demanda_salao = st.sidebar.selectbox(
+        "Demanda Salão:",
+        demanda_lista
+    )
 
     st.sidebar.subheader("Filtros — P.A.R")
-    demanda_par = st.sidebar.selectbox("Demanda (P.A.R):", demanda_lista)
 
-    df_salao = df[df["demanda"] == demanda_salao] if demanda_salao != "— Nenhuma seleção —" else df.iloc[0:0]
-    df_par = df[df["demanda"] == demanda_par] if demanda_par != "— Nenhuma seleção —" else df.iloc[0:0]
+    demanda_par = st.sidebar.selectbox(
+        "Demanda (P.A.R):",
+        demanda_lista
+    )
+
+    df_salao = (
+        df[df["demanda"] == demanda_salao]
+        if demanda_salao != "— Nenhuma seleção —"
+        else df.iloc[0:0]
+    )
+
+    df_par = (
+        df[df["demanda"] == demanda_par]
+        if demanda_par != "— Nenhuma seleção —"
+        else df.iloc[0:0]
+    )
 
     # ==========================
     # TOPO
@@ -158,9 +224,15 @@ def render():
             st.image(Image.open(IMAGE_PATH), width=220)
 
     with col_c:
-        st.markdown("<h1 style='text-align:center;margin-bottom:0;'>SALÃO</h1>", unsafe_allow_html=True)
+        st.markdown(
+            "<h1 style='text-align:center;margin-bottom:0;'>SALÃO</h1>",
+            unsafe_allow_html=True
+        )
 
-    st.markdown("<div style='margin-top:-10px'></div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div style='margin-top:-10px'></div>",
+        unsafe_allow_html=True
+    )
 
     # ==========================
     # CARD
@@ -169,6 +241,7 @@ def render():
         return f"{int(v):,}".replace(",", ".")
 
     def card(col, titulo, valor, cor, subtitle=None, size="medium"):
+
         sizes = {
             "small": ("22px", "52px", "6px"),
             "medium": ("30px", "72px", "10px")
@@ -218,29 +291,64 @@ def render():
     cols = st.columns(5)
 
     for i, status in enumerate(status_colors):
-        card(cols[i], status, res_salao.get(status, 0), status_colors[status])
+        card(
+            cols[i],
+            status,
+            res_salao.get(status, 0),
+            status_colors[status]
+        )
 
-    card(cols[4], "Total Geral", df_salao["qtde_pecas_item"].sum(), "black")
+    card(
+        cols[4],
+        "Total Geral",
+        df_salao["qtde_pecas_item"].sum(),
+        "black"
+    )
 
     # ==========================
     # P.A.R
     # ==========================
-    st.markdown("<div style='margin-top:-15px'></div>", unsafe_allow_html=True)
-    st.markdown("<h1 style='text-align:center;margin-bottom:0;'>P.A.R</h1>", unsafe_allow_html=True)
+    st.markdown(
+        "<div style='margin-top:-15px'></div>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        "<h1 style='text-align:center;margin-bottom:0;'>P.A.R</h1>",
+        unsafe_allow_html=True
+    )
 
     res_par = resumo(df_par)
+
     cols = st.columns(5)
 
     for i, status in enumerate(status_colors):
-        card(cols[i], status, res_par.get(status, 0), status_colors[status])
+        card(
+            cols[i],
+            status,
+            res_par.get(status, 0),
+            status_colors[status]
+        )
 
-    card(cols[4], "Total Geral", df_par["qtde_pecas_item"].sum(), "black")
+    card(
+        cols[4],
+        "Total Geral",
+        df_par["qtde_pecas_item"].sum(),
+        "black"
+    )
 
     # ==========================
     # AUDIT
     # ==========================
-    st.markdown("<div style='margin-top:-15px'></div>", unsafe_allow_html=True)
-    st.markdown("<h1 style='text-align:center;margin-bottom:0;'>AUDIT</h1>", unsafe_allow_html=True)
+    st.markdown(
+        "<div style='margin-top:-15px'></div>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        "<h1 style='text-align:center;margin-bottom:0;'>AUDIT</h1>",
+        unsafe_allow_html=True
+    )
 
     if df_salao.empty or "audit_status" not in df_salao.columns:
         st.info("Sem dados de AUDIT.")
@@ -263,14 +371,23 @@ def render():
         .fillna("AUDIT INCOMPLETO")
     )
 
-    df_group = df_audit.groupby("status_audit_tratado")["qtde_pecas_item"].sum().reset_index()
+    df_group = (
+        df_audit
+        .groupby("status_audit_tratado")["qtde_pecas_item"]
+        .sum()
+        .reset_index()
+    )
 
     total = df_group["qtde_pecas_item"].sum()
 
     cols = st.columns(len(df_group))
 
     for i, row in df_group.iterrows():
-        pct = (row["qtde_pecas_item"] / total * 100) if total else 0
+
+        pct = (
+            (row["qtde_pecas_item"] / total * 100)
+            if total else 0
+        )
 
         card(
             cols[i],
