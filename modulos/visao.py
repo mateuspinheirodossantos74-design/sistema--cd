@@ -16,6 +16,7 @@ IMAGE_PATH = os.path.join("imagens", "2.png")
 def carregar_dados():
 
     try:
+
         df = pd.read_sql("""
             SELECT 
                 bo.box,
@@ -41,13 +42,19 @@ def carregar_dados():
         """, get_connection())
 
     except Exception as e:
+
         st.error(f"Erro ao carregar dados: {e}")
-        return pd.DataFrame(), pd.DataFrame()
+
+        return (
+            pd.DataFrame(),
+            pd.DataFrame()
+        )
 
     # ==========================
-    # GARANTIR COLUNAS
+    # GARANTE COLUNAS
     # ==========================
     for col in ["box", "wave"]:
+
         if col not in df.columns:
             df[col] = None
 
@@ -69,7 +76,7 @@ def carregar_dados():
     )
 
     # ==========================
-    # MERGE SETORES
+    # SETORES
     # ==========================
     if not df_setores.empty:
 
@@ -87,10 +94,11 @@ def carregar_dados():
         )
 
     else:
+
         df["setor"] = None
 
     # ==========================
-    # MERGE DEMANDAS
+    # DEMANDAS
     # ==========================
     if not df_demandas.empty:
 
@@ -108,6 +116,7 @@ def carregar_dados():
         )
 
     else:
+
         df["demanda"] = None
 
     # ==========================
@@ -141,9 +150,13 @@ def render():
         st.cache_data.clear()
         st.rerun()
 
+    # ==========================
+    # CARREGAR BASE
+    # ==========================
     df, df_demandas = carregar_dados()
 
     if df.empty:
+
         st.warning("⏳ Sem dados disponíveis.")
         st.stop()
 
@@ -162,7 +175,11 @@ def render():
     )
 
     if not conferentes:
-        st.warning("Nenhum conferente encontrado")
+
+        st.warning(
+            "Nenhum conferente encontrado"
+        )
+
         st.stop()
 
     conferente_sel = st.sidebar.multiselect(
@@ -179,9 +196,11 @@ def render():
         ]
 
     if df.empty:
+
         st.warning(
             "Nenhum dado para os conferentes selecionados."
         )
+
         st.stop()
 
     # ==========================
@@ -208,7 +227,11 @@ def render():
     )
 
     if not setores_sel:
-        st.warning("Selecione pelo menos um setor")
+
+        st.warning(
+            "Selecione pelo menos um setor"
+        )
+
         st.stop()
 
     if "setor" in df.columns:
@@ -220,9 +243,11 @@ def render():
         ]
 
     if df.empty:
+
         st.warning(
             "Nenhum dado após filtro de setor."
         )
+
         st.stop()
 
     # ==========================
@@ -231,10 +256,6 @@ def render():
     df = df.dropna(
         subset=["data_limite_expedicao"]
     )
-
-    if df.empty:
-        st.warning("Sem datas válidas.")
-        st.stop()
 
     data_min = (
         df["data_limite_expedicao"]
@@ -264,8 +285,13 @@ def render():
         else (datas, datas)
     )
 
-    data_inicio = pd.to_datetime(data_inicio)
-    data_fim = pd.to_datetime(data_fim)
+    data_inicio = pd.to_datetime(
+        data_inicio
+    )
+
+    data_fim = pd.to_datetime(
+        data_fim
+    )
 
     df = df[
         (
@@ -280,9 +306,11 @@ def render():
     ]
 
     if df.empty:
+
         st.warning(
             "Nenhum dado após filtro de data."
         )
+
         st.stop()
 
     # ==========================
@@ -300,14 +328,18 @@ def render():
         else ["— Nenhuma seleção —"]
     )
 
-    st.sidebar.subheader("Filtros — Salão")
+    st.sidebar.subheader(
+        "Filtros — Salão"
+    )
 
     demanda_salao = st.sidebar.selectbox(
         "Demanda Salão:",
         demanda_lista
     )
 
-    st.sidebar.subheader("Filtros — P.A.R")
+    st.sidebar.subheader(
+        "Filtros — P.A.R"
+    )
 
     demanda_par = st.sidebar.selectbox(
         "Demanda (P.A.R):",
@@ -355,10 +387,14 @@ def render():
     )
 
     # ==========================
-    # FUNÇÕES AUXILIARES
+    # AUXILIARES
     # ==========================
     def fmt(v):
-        return f"{int(v):,}".replace(",", ".")
+
+        return (
+            f"{int(v):,}"
+            .replace(",", ".")
+        )
 
     def card(
         col,
@@ -394,6 +430,7 @@ def render():
             box-shadow:0 6px 18px rgba(0,0,0,0.18);
             margin-top:-5px;
         ">
+
             <h3 style="
                 font-size:{t};
                 margin:0;
@@ -526,6 +563,7 @@ def render():
     ):
 
         st.info("Sem dados de AUDIT.")
+
         return
 
     df_audit = df_salao.copy()
@@ -559,29 +597,20 @@ def render():
         .sum()
     )
 
-    if not df_group.empty:
+    cols = st.columns(len(df_group))
 
-        cols = st.columns(
-            max(len(df_group), 1)
+    for i, row in df_group.iterrows():
+
+        pct = (
+            row["qtde_pecas_item"]
+            / total * 100
+        ) if total else 0
+
+        card(
+            cols[i],
+            row["status_audit_tratado"],
+            row["qtde_pecas_item"],
+            "blue",
+            subtitle=f"{pct:.1f}%",
+            size="small"
         )
-
-        for i, row in df_group.iterrows():
-
-            pct = (
-                (
-                    row["qtde_pecas_item"]
-                    / total
-                ) * 100
-            ) if total else 0
-
-            card(
-                cols[i],
-                row["status_audit_tratado"],
-                row["qtde_pecas_item"],
-                "blue",
-                subtitle=f"{pct:.1f}%",
-                size="small"
-            )
-
-    else:
-        st.info("Sem dados de AUDIT.")
