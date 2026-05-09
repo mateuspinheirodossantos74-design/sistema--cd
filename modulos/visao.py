@@ -5,7 +5,6 @@ from streamlit_autorefresh import st_autorefresh
 import streamlit.components.v1 as components
 from modulos.conexao import get_connection
 import os
-from datetime import datetime, timedelta
 
 IMAGE_PATH = os.path.join("imagens", "2.png")
 
@@ -112,7 +111,7 @@ def carregar_dados():
         df["demanda"] = None
 
     # ==========================
-    # DATAS
+    # DATA
     # ==========================
     if "data_limite_expedicao" in df.columns:
 
@@ -120,21 +119,6 @@ def carregar_dados():
             df["data_limite_expedicao"],
             errors="coerce"
         )
-
-        # remove datas absurdamente antigas
-        data_limite_minima = (
-            pd.Timestamp.now()
-            - pd.DateOffset(days=7)
-        )
-
-        df = df[
-            df["data_limite_expedicao"].isna()
-            |
-            (
-                df["data_limite_expedicao"]
-                >= data_limite_minima
-            )
-        ]
 
     return df, df_demandas
 
@@ -252,8 +236,6 @@ def render():
         st.warning("Sem datas válidas.")
         st.stop()
 
-    hoje = datetime.today().date()
-
     data_min = (
         df["data_limite_expedicao"]
         .min()
@@ -266,22 +248,11 @@ def render():
         .date()
     )
 
-    # garante datas válidas
-    data_padrao_inicio = max(
-        data_min,
-        hoje - timedelta(days=7)
-    )
-
-    data_padrao_fim = min(
-        data_max,
-        hoje
-    )
-
     datas = st.sidebar.date_input(
         "Data Limite Expedição:",
         value=(
-            data_padrao_inicio,
-            data_padrao_fim
+            data_min,
+            data_max
         ),
         min_value=data_min,
         max_value=data_max
@@ -384,7 +355,7 @@ def render():
     )
 
     # ==========================
-    # FORMATADORES
+    # FUNÇÕES AUXILIARES
     # ==========================
     def fmt(v):
         return f"{int(v):,}".replace(",", ".")
@@ -443,6 +414,7 @@ def render():
                 f"<p style='font-size:20px;font-weight:600;margin:0;'>{subtitle}</p>"
                 if subtitle else ""
             }
+
         </div>
         """, unsafe_allow_html=True)
 
@@ -502,7 +474,7 @@ def render():
     )
 
     # ==========================
-    # PAR
+    # P.A.R
     # ==========================
     st.markdown(
         "<div style='margin-top:-15px'></div>",
@@ -587,22 +559,29 @@ def render():
         .sum()
     )
 
-    cols = st.columns(len(df_group))
+    if not df_group.empty:
 
-    for i, row in df_group.iterrows():
-
-        pct = (
-            (
-                row["qtde_pecas_item"]
-                / total
-            ) * 100
-        ) if total else 0
-
-        card(
-            cols[i],
-            row["status_audit_tratado"],
-            row["qtde_pecas_item"],
-            "blue",
-            subtitle=f"{pct:.1f}%",
-            size="small"
+        cols = st.columns(
+            max(len(df_group), 1)
         )
+
+        for i, row in df_group.iterrows():
+
+            pct = (
+                (
+                    row["qtde_pecas_item"]
+                    / total
+                ) * 100
+            ) if total else 0
+
+            card(
+                cols[i],
+                row["status_audit_tratado"],
+                row["qtde_pecas_item"],
+                "blue",
+                subtitle=f"{pct:.1f}%",
+                size="small"
+            )
+
+    else:
+        st.info("Sem dados de AUDIT.")
