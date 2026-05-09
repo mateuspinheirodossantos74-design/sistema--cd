@@ -45,14 +45,35 @@ def carregar_dados():
         st.error(f"Erro ao carregar dados: {e}")
         return pd.DataFrame(), pd.DataFrame()
 
+    # ==========================
+    # GARANTIR COLUNAS
+    # ==========================
     for col in ["box", "wave"]:
         if col not in df.columns:
             df[col] = None
 
-    df["box"] = df["box"].astype(str).str.strip().str.upper()
-    df["wave"] = df["wave"].astype(str).str.strip().str.upper()
+    # ==========================
+    # PADRONIZAÇÃO
+    # ==========================
+    df["box"] = (
+        df["box"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+    )
 
+    df["wave"] = (
+        df["wave"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+    )
+
+    # ==========================
+    # MERGE SETORES
+    # ==========================
     if not df_setores.empty:
+
         df_setores["box"] = (
             df_setores["box"]
             .astype(str)
@@ -69,6 +90,9 @@ def carregar_dados():
     else:
         df["setor"] = None
 
+    # ==========================
+    # MERGE DEMANDAS
+    # ==========================
     if not df_demandas.empty:
 
         df_demandas["wave"] = (
@@ -97,16 +121,15 @@ def carregar_dados():
             errors="coerce"
         )
 
-        # ==========================
-        # 🔥 REMOVE DATAS MUITO ANTIGAS
-        # ==========================
+        # remove datas absurdamente antigas
         data_limite_minima = (
-            pd.Timestamp.now() -
-            pd.DateOffset(days=7)
+            pd.Timestamp.now()
+            - pd.DateOffset(days=7)
         )
 
         df = df[
-            df["data_limite_expedicao"].isna() |
+            df["data_limite_expedicao"].isna()
+            |
             (
                 df["data_limite_expedicao"]
                 >= data_limite_minima
@@ -127,7 +150,7 @@ def render():
     )
 
     # ==========================
-    # FILTROS
+    # BOTÃO ATUALIZAR
     # ==========================
     if st.sidebar.button("🔄 Atualizar Dados"):
 
@@ -155,9 +178,7 @@ def render():
     )
 
     if not conferentes:
-        st.warning(
-            "Nenhum conferente encontrado"
-        )
+        st.warning("Nenhum conferente encontrado")
         st.stop()
 
     conferente_sel = st.sidebar.multiselect(
@@ -180,7 +201,7 @@ def render():
         st.stop()
 
     # ==========================
-    # SETOR
+    # FILTRO SETOR
     # ==========================
     st.sidebar.subheader(
         "Filtro por Setor"
@@ -203,9 +224,7 @@ def render():
     )
 
     if not setores_sel:
-        st.warning(
-            "Selecione pelo menos um setor"
-        )
+        st.warning("Selecione pelo menos um setor")
         st.stop()
 
     if "setor" in df.columns:
@@ -229,10 +248,11 @@ def render():
         subset=["data_limite_expedicao"]
     )
 
-    hoje = datetime.today().date()
+    if df.empty:
+        st.warning("Sem datas válidas.")
+        st.stop()
 
-    data_padrao_inicio = hoje - timedelta(days=7)
-    data_padrao_fim = hoje
+    hoje = datetime.today().date()
 
     data_min = (
         df["data_limite_expedicao"]
@@ -244,6 +264,17 @@ def render():
         df["data_limite_expedicao"]
         .max()
         .date()
+    )
+
+    # garante datas válidas
+    data_padrao_inicio = max(
+        data_min,
+        hoje - timedelta(days=7)
+    )
+
+    data_padrao_fim = min(
+        data_max,
+        hoje
     )
 
     datas = st.sidebar.date_input(
@@ -284,7 +315,7 @@ def render():
         st.stop()
 
     # ==========================
-    # DEMANDA
+    # FILTRO DEMANDA
     # ==========================
     demanda_lista = (
         ["— Nenhuma seleção —"] +
@@ -298,18 +329,14 @@ def render():
         else ["— Nenhuma seleção —"]
     )
 
-    st.sidebar.subheader(
-        "Filtros — Salão"
-    )
+    st.sidebar.subheader("Filtros — Salão")
 
     demanda_salao = st.sidebar.selectbox(
         "Demanda Salão:",
         demanda_lista
     )
 
-    st.sidebar.subheader(
-        "Filtros — P.A.R"
-    )
+    st.sidebar.subheader("Filtros — P.A.R")
 
     demanda_par = st.sidebar.selectbox(
         "Demanda (P.A.R):",
@@ -329,7 +356,7 @@ def render():
     )
 
     # ==========================
-    # LAYOUT
+    # HEADER
     # ==========================
     col_l, col_c, col_r = st.columns(
         [1.5, 3, 1.5]
@@ -356,6 +383,9 @@ def render():
         unsafe_allow_html=True
     )
 
+    # ==========================
+    # FORMATADORES
+    # ==========================
     def fmt(v):
         return f"{int(v):,}".replace(",", ".")
 
@@ -426,6 +456,9 @@ def render():
             .sum()
         )
 
+    # ==========================
+    # SALÃO
+    # ==========================
     res_salao = resumo(df_salao)
 
     status_colors = {
@@ -468,6 +501,9 @@ def render():
         "black"
     )
 
+    # ==========================
+    # PAR
+    # ==========================
     st.markdown(
         "<div style='margin-top:-15px'></div>",
         unsafe_allow_html=True
@@ -498,6 +534,9 @@ def render():
         "black"
     )
 
+    # ==========================
+    # AUDIT
+    # ==========================
     st.markdown(
         "<div style='margin-top:-15px'></div>",
         unsafe_allow_html=True
@@ -509,7 +548,8 @@ def render():
     )
 
     if (
-        df_salao.empty or
+        df_salao.empty
+        or
         "audit_status" not in df_salao.columns
     ):
 
@@ -542,9 +582,10 @@ def render():
         .reset_index()
     )
 
-    total = df_group[
-        "qtde_pecas_item"
-    ].sum()
+    total = (
+        df_group["qtde_pecas_item"]
+        .sum()
+    )
 
     cols = st.columns(len(df_group))
 
@@ -552,8 +593,8 @@ def render():
 
         pct = (
             (
-                row["qtde_pecas_item"] /
-                total
+                row["qtde_pecas_item"]
+                / total
             ) * 100
         ) if total else 0
 
