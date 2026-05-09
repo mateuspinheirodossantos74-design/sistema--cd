@@ -1,23 +1,28 @@
-import streamlit as st
+import os
+
 import pandas as pd
+import streamlit as st
+import streamlit.components.v1 as components
 from PIL import Image
 from streamlit_autorefresh import st_autorefresh
-import streamlit.components.v1 as components
+
 from modulos.conexao import get_connection
-import os
+
 
 IMAGE_PATH = os.path.join("imagens", "2.png")
 
 
-# ==========================
+# =========================================================
 # CARREGAR DADOS
-# ==========================
+# =========================================================
 @st.cache_data(ttl=300)
 def carregar_dados():
 
     try:
+        conn = get_connection()
 
-        df = pd.read_sql("""
+        df = pd.read_sql(
+            """
             SELECT 
                 bo.box,
                 bo.wave,
@@ -29,55 +34,50 @@ def carregar_dados():
             FROM base_operacional bo
             LEFT JOIN conferentes c
                 ON bo.box = c.box
-        """, get_connection())
-
-        df_setores = pd.read_sql("""
-            SELECT DISTINCT box, setor 
-            FROM mapa_box_setor
-        """, get_connection())
-
-        df_demandas = pd.read_sql("""
-            SELECT DISTINCT wave, demanda 
-            FROM demanda
-        """, get_connection())
-
-    except Exception as e:
-
-        st.error(f"Erro ao carregar dados: {e}")
-
-        return (
-            pd.DataFrame(),
-            pd.DataFrame()
+            """,
+            conn
         )
 
-    # ==========================
-    # GARANTE COLUNAS
-    # ==========================
-    for col in ["box", "wave"]:
+        df_setores = pd.read_sql(
+            """
+            SELECT DISTINCT
+                box,
+                setor
+            FROM mapa_box_setor
+            """,
+            conn
+        )
 
+        df_demandas = pd.read_sql(
+            """
+            SELECT DISTINCT
+                wave,
+                demanda
+            FROM demanda
+            """,
+            conn
+        )
+
+    except Exception as e:
+        st.error(f"Erro ao carregar dados: {e}")
+        return pd.DataFrame(), pd.DataFrame()
+
+    # -------------------------
+    # Garantir colunas
+    # -------------------------
+    for col in ["box", "wave"]:
         if col not in df.columns:
             df[col] = None
 
-    # ==========================
-    # PADRONIZAÇÃO
-    # ==========================
-    df["box"] = (
-        df["box"]
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
+    # -------------------------
+    # Padronização
+    # -------------------------
+    df["box"] = df["box"].astype(str).str.strip().str.upper()
+    df["wave"] = df["wave"].astype(str).str.strip().str.upper()
 
-    df["wave"] = (
-        df["wave"]
-        .astype(str)
-        .str.strip()
-        .str.upper()
-    )
-
-    # ==========================
-    # SETORES
-    # ==========================
+    # -------------------------
+    # Merge setores
+    # -------------------------
     if not df_setores.empty:
 
         df_setores["box"] = (
@@ -87,19 +87,14 @@ def carregar_dados():
             .str.upper()
         )
 
-        df = df.merge(
-            df_setores,
-            on="box",
-            how="left"
-        )
+        df = df.merge(df_setores, on="box", how="left")
 
     else:
-
         df["setor"] = None
 
-    # ==========================
-    # DEMANDAS
-    # ==========================
+    # -------------------------
+    # Merge demandas
+    # -------------------------
     if not df_demandas.empty:
 
         df_demandas["wave"] = (
@@ -109,21 +104,15 @@ def carregar_dados():
             .str.upper()
         )
 
-        df = df.merge(
-            df_demandas,
-            on="wave",
-            how="left"
-        )
+        df = df.merge(df_demandas, on="wave", how="left")
 
     else:
-
         df["demanda"] = None
 
-    # ==========================
-    # DATA
-    # ==========================
+    # -------------------------
+    # Datas
+    # -------------------------
     if "data_limite_expedicao" in df.columns:
-
         df["data_limite_expedicao"] = pd.to_datetime(
             df["data_limite_expedicao"],
             errors="coerce"
@@ -132,9 +121,69 @@ def carregar_dados():
     return df, df_demandas
 
 
-# ==========================
+# =========================================================
+# FUNÇÕES AUXILIARES
+# =========================================================
+def fmt(valor):
+    return f"{int(valor):,}".replace(",", ".")
+
+
+def resumo(df_local):
+    return (
+        df_local
+        .groupby("status_olpn")["qtde_pecas_item"]
+        .sum()
+    )
+
+
+def card(col, titulo, valor, cor, subtitle=None, size="medium"):
+
+    sizes = {
+        "small": ("22px", "52px", "6px"),
+        "medium": ("30px", "72px", "10px")
+    }
+
+    title_size, value_size, padding = sizes[size]
+
+    col.markdown(
+        f"""
+        <div style="
+            background:white;
+            padding:{padding};
+            border-radius:18px;
+            text-align:center;
+            box-shadow:0 6px 18px rgba(0,0,0,0.18);
+            margin-top:-5px;
+        ">
+            <h3 style="
+                font-size:{title_size};
+                margin:0;
+            ">
+                {titulo}
+            </h3>
+
+            <p style="
+                font-size:{value_size};
+                color:{cor};
+                font-weight:800;
+                margin:4px 0;
+            ">
+                {fmt(valor)}
+            </p>
+
+            {
+                f"<p style='font-size:20px;font-weight:600;margin:0;'>{subtitle}</p>"
+                if subtitle else ""
+            }
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+# =========================================================
 # RENDER
-# ==========================
+# =========================================================
 def render():
 
     st_autorefresh(
@@ -142,30 +191,26 @@ def render():
         key="auto_refresh_visao"
     )
 
-    # ==========================
-    # BOTÃO ATUALIZAR
-    # ==========================
+    # =====================================================
+    # ATUALIZAR DADOS
+    # =====================================================
     if st.sidebar.button("🔄 Atualizar Dados"):
-
         st.cache_data.clear()
         st.rerun()
 
-    # ==========================
+    # =====================================================
     # CARREGAR BASE
-    # ==========================
+    # =====================================================
     df, df_demandas = carregar_dados()
 
     if df.empty:
-
         st.warning("⏳ Sem dados disponíveis.")
         st.stop()
 
-    # ==========================
+    # =====================================================
     # FILTRO CONFERENTE
-    # ==========================
-    st.sidebar.subheader(
-        "Filtro por Conferente"
-    )
+    # =====================================================
+    st.sidebar.subheader("Filtro por Conferente")
 
     conferentes = sorted(
         df["conferente"]
@@ -175,11 +220,7 @@ def render():
     )
 
     if not conferentes:
-
-        st.warning(
-            "Nenhum conferente encontrado"
-        )
-
+        st.warning("Nenhum conferente encontrado")
         st.stop()
 
     conferente_sel = st.sidebar.multiselect(
@@ -189,34 +230,19 @@ def render():
     )
 
     if "Todos" not in conferente_sel:
-
-        df = df[
-            df["conferente"]
-            .isin(conferente_sel)
-        ]
+        df = df[df["conferente"].isin(conferente_sel)]
 
     if df.empty:
-
-        st.warning(
-            "Nenhum dado para os conferentes selecionados."
-        )
-
+        st.warning("Nenhum dado para os conferentes selecionados.")
         st.stop()
 
-    # ==========================
+    # =====================================================
     # FILTRO SETOR
-    # ==========================
-    st.sidebar.subheader(
-        "Filtro por Setor"
-    )
+    # =====================================================
+    st.sidebar.subheader("Filtro por Setor")
 
     setores = (
-        sorted(
-            df["setor"]
-            .dropna()
-            .unique()
-            .tolist()
-        )
+        sorted(df["setor"].dropna().unique().tolist())
         if "setor" in df.columns
         else []
     )
@@ -227,15 +253,10 @@ def render():
     )
 
     if not setores_sel:
-
-        st.warning(
-            "Selecione pelo menos um setor"
-        )
-
+        st.warning("Selecione pelo menos um setor")
         st.stop()
 
     if "setor" in df.columns:
-
         df = df[
             df["setor"]
             .fillna("SEM_SETOR")
@@ -243,38 +264,20 @@ def render():
         ]
 
     if df.empty:
-
-        st.warning(
-            "Nenhum dado após filtro de setor."
-        )
-
+        st.warning("Nenhum dado após filtro de setor.")
         st.stop()
 
-    # ==========================
+    # =====================================================
     # FILTRO DATA
-    # ==========================
-    df = df.dropna(
-        subset=["data_limite_expedicao"]
-    )
+    # =====================================================
+    df = df.dropna(subset=["data_limite_expedicao"])
 
-    data_min = (
-        df["data_limite_expedicao"]
-        .min()
-        .date()
-    )
-
-    data_max = (
-        df["data_limite_expedicao"]
-        .max()
-        .date()
-    )
+    data_min = df["data_limite_expedicao"].min().date()
+    data_max = df["data_limite_expedicao"].max().date()
 
     datas = st.sidebar.date_input(
         "Data Limite Expedição:",
-        value=(
-            data_min,
-            data_max
-        ),
+        value=(data_min, data_max),
         min_value=data_min,
         max_value=data_max
     )
@@ -285,37 +288,22 @@ def render():
         else (datas, datas)
     )
 
-    data_inicio = pd.to_datetime(
-        data_inicio
-    )
-
-    data_fim = pd.to_datetime(
-        data_fim
-    )
+    data_inicio = pd.to_datetime(data_inicio)
+    data_fim = pd.to_datetime(data_fim)
 
     df = df[
-        (
-            df["data_limite_expedicao"]
-            >= data_inicio
-        )
+        (df["data_limite_expedicao"] >= data_inicio)
         &
-        (
-            df["data_limite_expedicao"]
-            <= data_fim
-        )
+        (df["data_limite_expedicao"] <= data_fim)
     ]
 
     if df.empty:
-
-        st.warning(
-            "Nenhum dado após filtro de data."
-        )
-
+        st.warning("Nenhum dado após filtro de data.")
         st.stop()
 
-    # ==========================
+    # =====================================================
     # FILTRO DEMANDA
-    # ==========================
+    # =====================================================
     demanda_lista = (
         ["— Nenhuma seleção —"] +
         sorted(
@@ -328,24 +316,23 @@ def render():
         else ["— Nenhuma seleção —"]
     )
 
-    st.sidebar.subheader(
-        "Filtros — Salão"
-    )
+    st.sidebar.subheader("Filtros — Salão")
 
     demanda_salao = st.sidebar.selectbox(
         "Demanda Salão:",
         demanda_lista
     )
 
-    st.sidebar.subheader(
-        "Filtros — P.A.R"
-    )
+    st.sidebar.subheader("Filtros — P.A.R")
 
     demanda_par = st.sidebar.selectbox(
         "Demanda (P.A.R):",
         demanda_lista
     )
 
+    # =====================================================
+    # DATAFRAMES FILTRADOS
+    # =====================================================
     df_salao = (
         df[df["demanda"] == demanda_salao]
         if demanda_salao != "— Nenhuma seleção —"
@@ -358,26 +345,22 @@ def render():
         else df.iloc[0:0]
     )
 
-    # ==========================
+    # =====================================================
     # HEADER
-    # ==========================
-    col_l, col_c, col_r = st.columns(
-        [1.5, 3, 1.5]
-    )
+    # =====================================================
+    col_l, col_c, col_r = st.columns([1.5, 3, 1.5])
 
     with col_l:
-
         if os.path.exists(IMAGE_PATH):
-
-            st.image(
-                Image.open(IMAGE_PATH),
-                width=220
-            )
+            st.image(Image.open(IMAGE_PATH), width=220)
 
     with col_c:
-
         st.markdown(
-            "<h1 style='text-align:center;margin-bottom:0;'>SALÃO</h1>",
+            """
+            <h1 style='text-align:center;margin-bottom:0;'>
+                SALÃO
+            </h1>
+            """,
             unsafe_allow_html=True
         )
 
@@ -386,90 +369,9 @@ def render():
         unsafe_allow_html=True
     )
 
-    # ==========================
-    # AUXILIARES
-    # ==========================
-    def fmt(v):
-
-        return (
-            f"{int(v):,}"
-            .replace(",", ".")
-        )
-
-    def card(
-        col,
-        titulo,
-        valor,
-        cor,
-        subtitle=None,
-        size="medium"
-    ):
-
-        sizes = {
-            "small": (
-                "22px",
-                "52px",
-                "6px"
-            ),
-
-            "medium": (
-                "30px",
-                "72px",
-                "10px"
-            )
-        }
-
-        t, v, p = sizes[size]
-
-        col.markdown(f"""
-        <div style="
-            background:white;
-            padding:{p};
-            border-radius:18px;
-            text-align:center;
-            box-shadow:0 6px 18px rgba(0,0,0,0.18);
-            margin-top:-5px;
-        ">
-
-            <h3 style="
-                font-size:{t};
-                margin:0;
-            ">
-                {titulo}
-            </h3>
-
-            <p style="
-                font-size:{v};
-                color:{cor};
-                font-weight:800;
-                margin:4px 0;
-            ">
-                {fmt(valor)}
-            </p>
-
-            {
-                f"<p style='font-size:20px;font-weight:600;margin:0;'>{subtitle}</p>"
-                if subtitle else ""
-            }
-
-        </div>
-        """, unsafe_allow_html=True)
-
-    def resumo(df_local):
-
-        return (
-            df_local
-            .groupby("status_olpn")[
-                "qtde_pecas_item"
-            ]
-            .sum()
-        )
-
-    # ==========================
-    # SALÃO
-    # ==========================
-    res_salao = resumo(df_salao)
-
+    # =====================================================
+    # STATUS COLORS
+    # =====================================================
     status_colors = {
         "Created": "red",
         "Packed": "gold",
@@ -477,7 +379,11 @@ def render():
         "Shipped": "black"
     }
 
-    st.markdown(f"""
+    # =====================================================
+    # PERÍODO
+    # =====================================================
+    st.markdown(
+        f"""
         <div style="
             font-size:24px;
             font-weight:900;
@@ -490,7 +396,14 @@ def render():
             →
             {data_fim.strftime('%d/%m/%Y')}
         </div>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
+
+    # =====================================================
+    # SALÃO
+    # =====================================================
+    res_salao = resumo(df_salao)
 
     cols = st.columns(5)
 
@@ -510,16 +423,20 @@ def render():
         "black"
     )
 
-    # ==========================
+    # =====================================================
     # P.A.R
-    # ==========================
+    # =====================================================
     st.markdown(
         "<div style='margin-top:-15px'></div>",
         unsafe_allow_html=True
     )
 
     st.markdown(
-        "<h1 style='text-align:center;margin-bottom:0;'>P.A.R</h1>",
+        """
+        <h1 style='text-align:center;margin-bottom:0;'>
+            P.A.R
+        </h1>
+        """,
         unsafe_allow_html=True
     )
 
@@ -543,27 +460,25 @@ def render():
         "black"
     )
 
-    # ==========================
+    # =====================================================
     # AUDIT
-    # ==========================
+    # =====================================================
     st.markdown(
         "<div style='margin-top:-15px'></div>",
         unsafe_allow_html=True
     )
 
     st.markdown(
-        "<h1 style='text-align:center;margin-bottom:0;'>AUDIT</h1>",
+        """
+        <h1 style='text-align:center;margin-bottom:0;'>
+            AUDIT
+        </h1>
+        """,
         unsafe_allow_html=True
     )
 
-    if (
-        df_salao.empty
-        or
-        "audit_status" not in df_salao.columns
-    ):
-
+    if df_salao.empty or "audit_status" not in df_salao.columns:
         st.info("Sem dados de AUDIT.")
-
         return
 
     df_audit = df_salao.copy()
@@ -585,26 +500,21 @@ def render():
 
     df_group = (
         df_audit
-        .groupby("status_audit_tratado")[
-            "qtde_pecas_item"
-        ]
+        .groupby("status_audit_tratado")["qtde_pecas_item"]
         .sum()
         .reset_index()
     )
 
-    total = (
-        df_group["qtde_pecas_item"]
-        .sum()
-    )
+    total = df_group["qtde_pecas_item"].sum()
 
     cols = st.columns(len(df_group))
 
     for i, row in df_group.iterrows():
 
         pct = (
-            row["qtde_pecas_item"]
-            / total * 100
-        ) if total else 0
+            (row["qtde_pecas_item"] / total * 100)
+            if total else 0
+        )
 
         card(
             cols[i],
