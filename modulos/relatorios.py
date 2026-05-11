@@ -29,7 +29,7 @@ PDF_LIMIT = 80
 # SESSION STATE
 # ==========================
 if "olpns_reimpressao" not in st.session_state:
-    st.session_state.olpns_reimpressao = []
+    st.session_state["olpns_reimpressao"] = []
 
 
 # ==========================
@@ -118,9 +118,6 @@ def carregar_dados():
             .str.upper()
         )
 
-        # ==========================
-        # MERGE DEMANDA
-        # ==========================
         df = df.merge(
             df_demanda,
             on="wave",
@@ -594,8 +591,6 @@ def render():
     # ==========================
     with aba1:
 
-        st.subheader("Selecionar etiquetas para reimpressão")
-
         df_editor = df_packed.copy()
 
         df_editor.insert(0, "Selecionar", False)
@@ -617,20 +612,25 @@ def render():
             .tolist()
         )
 
-        st.markdown("### 🖨️ Etiquetas Selecionadas do Conferente")
+        st.markdown("### 🖨️ oLPNs Selecionadas")
+
+        texto_olpns = ", ".join(olpns_selecionadas)
 
         st.text_area(
-            "Copiar etiquetas do conferente",
-            value="\n".join(olpns_selecionadas),
-            height=150
+            "Copiar para reimpressão",
+            value=texto_olpns,
+            height=120
         )
 
-        if st.button("➕ Adicionar na Reimpressão Geral"):
+        if st.button("➕ Adicionar na Reimpressão"):
 
-            for olpn in olpns_selecionadas:
+            atuais = st.session_state["olpns_reimpressao"]
 
-                if olpn not in st.session_state.olpns_reimpressao:
-                    st.session_state.olpns_reimpressao.append(olpn)
+            novas = atuais + olpns_selecionadas
+
+            novas = list(dict.fromkeys(novas))
+
+            st.session_state["olpns_reimpressao"] = novas
 
             st.success("Etiquetas adicionadas na aba Reimpressão")
 
@@ -649,26 +649,22 @@ def render():
     # ==========================
     with aba3:
 
-        st.subheader("🖨️ Etiquetas Acumuladas")
+        st.markdown("## 🖨️ Etiquetas Acumuladas")
 
-        lista_reimpressao = (
-            st.session_state.olpns_reimpressao
-        )
+        lista_reimpressao = st.session_state["olpns_reimpressao"]
 
-        texto_reimpressao = "\n".join(
-            lista_reimpressao
-        )
+        texto_reimpressao = "\n".join(lista_reimpressao)
 
         st.text_area(
-            "Etiquetas para reimpressão",
+            "Etiquetas para Reimpressão",
             value=texto_reimpressao,
             height=400
         )
 
         if lista_reimpressao:
 
-            df_exportar = pd.DataFrame({
-                "olpn": lista_reimpressao
+            df_export = pd.DataFrame({
+                "oLPN": lista_reimpressao
             })
 
             excel_buffer = io.BytesIO()
@@ -678,7 +674,7 @@ def render():
                 engine="openpyxl"
             ) as writer:
 
-                df_exportar.to_excel(
+                df_export.to_excel(
                     writer,
                     index=False,
                     sheet_name="Reimpressao"
@@ -693,15 +689,11 @@ def render():
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
-        col_limpar1, col_limpar2 = st.columns(2)
+        if st.button("🗑️ Limpar Reimpressão"):
 
-        with col_limpar1:
+            st.session_state["olpns_reimpressao"] = []
 
-            if st.button("🗑️ Limpar Lista"):
-
-                st.session_state.olpns_reimpressao = []
-
-                st.rerun()
+            st.success("Lista limpa com sucesso")
 
     st.markdown("---")
 
