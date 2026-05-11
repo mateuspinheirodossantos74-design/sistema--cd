@@ -10,9 +10,9 @@ from reportlab.platypus import (
     Table,
     TableStyle,
     Paragraph,
-    Spacer
+    Spacer,
+    PageBreak
 )
-
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import landscape, A4
@@ -23,6 +23,13 @@ from reportlab.lib.units import cm
 # CONFIG
 # ==========================
 PDF_LIMIT = 80
+
+
+# ==========================
+# SESSION STATE
+# ==========================
+if "olpns_reimpressao" not in st.session_state:
+    st.session_state.olpns_reimpressao = []
 
 
 # ==========================
@@ -111,6 +118,9 @@ def carregar_dados():
             .str.upper()
         )
 
+        # ==========================
+        # MERGE DEMANDA
+        # ==========================
         df = df.merge(
             df_demanda,
             on="wave",
@@ -277,16 +287,27 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
             table.setStyle(TableStyle([
 
                 ("BACKGROUND", (0, 0), (-1, 0), colors.black),
+
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+
                 ("GRID", (0, 0), (-1, -1), 0.35, colors.black),
+
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+
                 ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
+
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+
                 ("ALIGN", (4, 1), (4, -1), "LEFT"),
+
                 ("ALIGN", (5, 1), (-1, -1), "CENTER"),
+
                 ("TOPPADDING", (0, 0), (-1, -1), 2),
+
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
 
             ]))
@@ -317,12 +338,6 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
 def render():
 
     st.title("📄 Relatório de Pendências por Conferente")
-
-    # ==========================
-    # CACHE OLPNS
-    # ==========================
-    if "olpns_cache" not in st.session_state:
-        st.session_state.olpns_cache = []
 
     df = carregar_dados()
 
@@ -568,15 +583,18 @@ def render():
     # ==========================
     # TABS
     # ==========================
-    aba1, aba2 = st.tabs([
+    aba1, aba2, aba3 = st.tabs([
         "📦 Packed",
-        "🧾 Audit"
+        "🧾 Audit",
+        "🖨️ Reimpressão"
     ])
 
     # ==========================
     # ABA PACKED
     # ==========================
     with aba1:
+
+        st.subheader("Selecionar etiquetas para reimpressão")
 
         df_editor = df_packed.copy()
 
@@ -599,82 +617,22 @@ def render():
             .tolist()
         )
 
-        col_add, col_clear = st.columns(2)
-
-        # ==========================
-        # ADICIONAR AO CACHE
-        # ==========================
-        with col_add:
-
-            if st.button("➕ Adicionar Selecionadas"):
-
-                atuais = set(
-                    st.session_state.olpns_cache
-                )
-
-                novas = set(olpns_selecionadas)
-
-                st.session_state.olpns_cache = list(
-                    atuais.union(novas)
-                )
-
-                st.success(
-                    f"{len(novas)} oLPN(s) adicionadas!"
-                )
-
-        # ==========================
-        # LIMPAR CACHE
-        # ==========================
-        with col_clear:
-
-            if st.button("🗑️ Limpar Lista"):
-
-                st.session_state.olpns_cache = []
-
-                st.success("Lista limpa!")
-
-        st.markdown("### 🖨️ oLPNs Acumuladas")
-
-        texto_olpns = ", ".join(
-            sorted(st.session_state.olpns_cache)
-        )
+        st.markdown("### 🖨️ Etiquetas Selecionadas do Conferente")
 
         st.text_area(
-            "Copiar para reimpressão",
-            value=texto_olpns,
+            "Copiar etiquetas do conferente",
+            value="\n".join(olpns_selecionadas),
             height=150
         )
 
-        # ==========================
-        # DOWNLOAD EXCEL
-        # ==========================
-        if st.session_state.olpns_cache:
+        if st.button("➕ Adicionar na Reimpressão Geral"):
 
-            df_export = pd.DataFrame({
-                "olpn": sorted(
-                    st.session_state.olpns_cache
-                )
-            })
+            for olpn in olpns_selecionadas:
 
-            buffer_excel = io.BytesIO()
+                if olpn not in st.session_state.olpns_reimpressao:
+                    st.session_state.olpns_reimpressao.append(olpn)
 
-            with pd.ExcelWriter(
-                buffer_excel,
-                engine="openpyxl"
-            ) as writer:
-
-                df_export.to_excel(
-                    writer,
-                    index=False,
-                    sheet_name="OLPNS"
-                )
-
-            st.download_button(
-                "📥 Baixar Excel",
-                data=buffer_excel.getvalue(),
-                file_name="olpns_reimpressao.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            st.success("Etiquetas adicionadas na aba Reimpressão")
 
     # ==========================
     # ABA AUDIT
@@ -685,6 +643,65 @@ def render():
             df_audit,
             use_container_width=True
         )
+
+    # ==========================
+    # ABA REIMPRESSÃO
+    # ==========================
+    with aba3:
+
+        st.subheader("🖨️ Etiquetas Acumuladas")
+
+        lista_reimpressao = (
+            st.session_state.olpns_reimpressao
+        )
+
+        texto_reimpressao = "\n".join(
+            lista_reimpressao
+        )
+
+        st.text_area(
+            "Etiquetas para reimpressão",
+            value=texto_reimpressao,
+            height=400
+        )
+
+        if lista_reimpressao:
+
+            df_exportar = pd.DataFrame({
+                "olpn": lista_reimpressao
+            })
+
+            excel_buffer = io.BytesIO()
+
+            with pd.ExcelWriter(
+                excel_buffer,
+                engine="openpyxl"
+            ) as writer:
+
+                df_exportar.to_excel(
+                    writer,
+                    index=False,
+                    sheet_name="Reimpressao"
+                )
+
+            excel_buffer.seek(0)
+
+            st.download_button(
+                "📥 Baixar Excel",
+                data=excel_buffer,
+                file_name="reimpressao_olpns.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+        col_limpar1, col_limpar2 = st.columns(2)
+
+        with col_limpar1:
+
+            if st.button("🗑️ Limpar Lista"):
+
+                st.session_state.olpns_reimpressao = []
+
+                st.rerun()
 
     st.markdown("---")
 
