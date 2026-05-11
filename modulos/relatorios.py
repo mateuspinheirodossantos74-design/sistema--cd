@@ -26,6 +26,13 @@ PDF_LIMIT = 80
 
 
 # ==========================
+# CACHE REIMPRESSAO
+# ==========================
+if "olpns_cache" not in st.session_state:
+    st.session_state.olpns_cache = []
+
+
+# ==========================
 # AUXILIAR
 # ==========================
 def limpar_nome_arquivo(nome):
@@ -111,9 +118,6 @@ def carregar_dados():
             .str.upper()
         )
 
-        # ==========================
-        # MERGE DEMANDA
-        # ==========================
         df = df.merge(
             df_demanda,
             on="wave",
@@ -280,27 +284,16 @@ def gerar_pdf(df_packed, df_audit, modo, conferente):
             table.setStyle(TableStyle([
 
                 ("BACKGROUND", (0, 0), (-1, 0), colors.black),
-
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-
                 ("GRID", (0, 0), (-1, -1), 0.35, colors.black),
-
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-
                 ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
-
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-
                 ("ALIGN", (4, 1), (4, -1), "LEFT"),
-
                 ("ALIGN", (5, 1), (-1, -1), "CENTER"),
-
                 ("TOPPADDING", (0, 0), (-1, -1), 2),
-
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
 
             ]))
@@ -607,13 +600,76 @@ def render():
             .tolist()
         )
 
-        st.markdown("### 🖨️ oLPNs Selecionadas")
+        col_add, col_clear = st.columns(2)
+
+        with col_add:
+
+            if st.button("➕ Adicionar Selecionadas"):
+
+                st.session_state.olpns_cache.extend(
+                    olpns_selecionadas
+                )
+
+                st.session_state.olpns_cache = sorted(
+                    list(set(st.session_state.olpns_cache))
+                )
+
+                st.success("oLPNs adicionadas!")
+
+        with col_clear:
+
+            if st.button("🗑️ Limpar Lista"):
+
+                st.session_state.olpns_cache = []
+
+                st.success("Lista limpa!")
+
+        st.markdown("### 🖨️ Lista de Reimpressão")
+
+        texto_olpns = ", ".join(
+            st.session_state.olpns_cache
+        )
 
         st.text_area(
-            "Copiar para reimpressão",
-            value=", ".join(olpns_selecionadas),
-            height=120
+            "Copiar oLPNs",
+            value=texto_olpns,
+            height=150
         )
+
+        st.markdown(
+            f"### Total Selecionadas: {len(st.session_state.olpns_cache)}"
+        )
+
+        # ==========================
+        # EXCEL
+        # ==========================
+        if st.session_state.olpns_cache:
+
+            df_excel = pd.DataFrame({
+                "olpn": st.session_state.olpns_cache
+            })
+
+            excel_buffer = io.BytesIO()
+
+            with pd.ExcelWriter(
+                excel_buffer,
+                engine="openpyxl"
+            ) as writer:
+
+                df_excel.to_excel(
+                    writer,
+                    index=False,
+                    sheet_name="Reimpressao"
+                )
+
+            excel_buffer.seek(0)
+
+            st.download_button(
+                "📥 Baixar Excel",
+                data=excel_buffer,
+                file_name="reimpressao_olpns.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
     # ==========================
     # ABA AUDIT
