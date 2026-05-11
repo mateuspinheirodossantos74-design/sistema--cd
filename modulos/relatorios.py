@@ -557,36 +557,6 @@ def render():
     )
 
     # ==========================
-    # REIMPRESSÃO ETIQUETAS
-    # ==========================
-    st.markdown("## 🖨️ Reimpressão de Etiquetas")
-
-    df_reimpressao = df_packed.copy()
-
-    df_reimpressao.insert(0, "Selecionar", False)
-
-    editor = st.data_editor(
-        df_reimpressao,
-        use_container_width=True,
-        hide_index=True,
-        key="editor_reimpressao"
-    )
-
-    olpns_selecionadas = editor[
-        editor["Selecionar"] == True
-    ]["olpn"].dropna().astype(str).unique().tolist()
-
-    st.markdown("### 📋 oLPNs Selecionadas")
-
-    texto_olpns = ", ".join(olpns_selecionadas)
-
-    st.text_area(
-        "Copiar oLPNs",
-        value=texto_olpns,
-        height=120
-    )
-
-    # ==========================
     # NOME PDF
     # ==========================
     if len(conferente_sel) == 1:
@@ -611,13 +581,45 @@ def render():
         "🧾 Audit"
     ])
 
+    # ==========================
+    # ABA PACKED
+    # ==========================
     with aba1:
-        st.dataframe(
-            df_packed,
-            use_container_width=True
+
+        df_editor = df_packed.copy()
+
+        df_editor.insert(0, "Selecionar", False)
+
+        editor = st.data_editor(
+            df_editor,
+            use_container_width=True,
+            hide_index=True,
+            key="editor_packed"
         )
 
+        olpns_selecionadas = (
+            editor[
+                editor["Selecionar"] == True
+            ]["olpn"]
+            .dropna()
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+
+        st.markdown("### 🖨️ oLPNs Selecionadas")
+
+        st.text_area(
+            "Copiar para reimpressão",
+            value=", ".join(olpns_selecionadas),
+            height=120
+        )
+
+    # ==========================
+    # ABA AUDIT
+    # ==========================
     with aba2:
+
         st.dataframe(
             df_audit,
             use_container_width=True
