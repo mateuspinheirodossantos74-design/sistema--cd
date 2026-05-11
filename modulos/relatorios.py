@@ -10,9 +10,9 @@ from reportlab.platypus import (
     Table,
     TableStyle,
     Paragraph,
-    Spacer,
-    PageBreak
+    Spacer
 )
+
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import landscape, A4
@@ -23,13 +23,6 @@ from reportlab.lib.units import cm
 # CONFIG
 # ==========================
 PDF_LIMIT = 80
-
-
-# ==========================
-# CACHE REIMPRESSAO
-# ==========================
-if "olpns_cache" not in st.session_state:
-    st.session_state.olpns_cache = []
 
 
 # ==========================
@@ -325,6 +318,12 @@ def render():
 
     st.title("📄 Relatório de Pendências por Conferente")
 
+    # ==========================
+    # CACHE OLPNS
+    # ==========================
+    if "olpns_cache" not in st.session_state:
+        st.session_state.olpns_cache = []
+
     df = carregar_dados()
 
     if df.empty:
@@ -602,20 +601,30 @@ def render():
 
         col_add, col_clear = st.columns(2)
 
+        # ==========================
+        # ADICIONAR AO CACHE
+        # ==========================
         with col_add:
 
             if st.button("➕ Adicionar Selecionadas"):
 
-                st.session_state.olpns_cache.extend(
-                    olpns_selecionadas
+                atuais = set(
+                    st.session_state.olpns_cache
                 )
 
-                st.session_state.olpns_cache = sorted(
-                    list(set(st.session_state.olpns_cache))
+                novas = set(olpns_selecionadas)
+
+                st.session_state.olpns_cache = list(
+                    atuais.union(novas)
                 )
 
-                st.success("oLPNs adicionadas!")
+                st.success(
+                    f"{len(novas)} oLPN(s) adicionadas!"
+                )
 
+        # ==========================
+        # LIMPAR CACHE
+        # ==========================
         with col_clear:
 
             if st.button("🗑️ Limpar Lista"):
@@ -624,50 +633,46 @@ def render():
 
                 st.success("Lista limpa!")
 
-        st.markdown("### 🖨️ Lista de Reimpressão")
+        st.markdown("### 🖨️ oLPNs Acumuladas")
 
         texto_olpns = ", ".join(
-            st.session_state.olpns_cache
+            sorted(st.session_state.olpns_cache)
         )
 
         st.text_area(
-            "Copiar oLPNs",
+            "Copiar para reimpressão",
             value=texto_olpns,
             height=150
         )
 
-        st.markdown(
-            f"### Total Selecionadas: {len(st.session_state.olpns_cache)}"
-        )
-
         # ==========================
-        # EXCEL
+        # DOWNLOAD EXCEL
         # ==========================
         if st.session_state.olpns_cache:
 
-            df_excel = pd.DataFrame({
-                "olpn": st.session_state.olpns_cache
+            df_export = pd.DataFrame({
+                "olpn": sorted(
+                    st.session_state.olpns_cache
+                )
             })
 
-            excel_buffer = io.BytesIO()
+            buffer_excel = io.BytesIO()
 
             with pd.ExcelWriter(
-                excel_buffer,
+                buffer_excel,
                 engine="openpyxl"
             ) as writer:
 
-                df_excel.to_excel(
+                df_export.to_excel(
                     writer,
                     index=False,
-                    sheet_name="Reimpressao"
+                    sheet_name="OLPNS"
                 )
-
-            excel_buffer.seek(0)
 
             st.download_button(
                 "📥 Baixar Excel",
-                data=excel_buffer,
-                file_name="reimpressao_olpns.xlsx",
+                data=buffer_excel.getvalue(),
+                file_name="olpns_reimpressao.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
