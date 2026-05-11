@@ -439,10 +439,31 @@ def render():
     )
 
     # ==========================
-    # STATUS
+    # STATUS PACKED
     # ==========================
+    st.sidebar.subheader("Filtro PACKED")
+
     status_packed = st.sidebar.multiselect(
-        "Status oLPN",
+        "Status oLPN (Packed)",
+        sorted(
+            df["status_olpn"]
+            .dropna()
+            .unique()
+        ),
+        default=sorted(
+            df["status_olpn"]
+            .dropna()
+            .unique()
+        )
+    )
+
+    # ==========================
+    # STATUS AUDIT
+    # ==========================
+    st.sidebar.subheader("Filtro AUDIT")
+
+    status_olpn_audit = st.sidebar.multiselect(
+        "Status oLPN (Audit)",
         sorted(
             df["status_olpn"]
             .dropna()
@@ -486,14 +507,27 @@ def render():
             )
         ]
 
+    # ==========================
+    # PACKED
+    # ==========================
     df_packed = df_base[
         df_base["status_olpn"]
         .isin(status_packed)
     ][COLUNAS].copy()
 
+    # ==========================
+    # AUDIT
+    # ==========================
     df_audit = df_base[
-        df_base["audit_status"]
-        .isin(status_audit)
+        (
+            df_base["status_olpn"]
+            .isin(status_olpn_audit)
+        )
+        &
+        (
+            df_base["audit_status"]
+            .isin(status_audit)
+        )
     ][COLUNAS_AUDIT].copy()
 
     df_packed["box_num"] = pd.to_numeric(
