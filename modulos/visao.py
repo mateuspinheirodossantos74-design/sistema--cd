@@ -88,12 +88,39 @@ def render():
         st.cache_data.clear()
         st.rerun()
 
-    st.sidebar.subheader("Filtro por Setor")
-
     df, df_demandas = carregar_dados()
 
     if df.empty:
         st.warning("⏳ Sem dados disponíveis.")
+        st.stop()
+
+    # ==========================
+    # SETOR
+    # ==========================
+    st.sidebar.subheader("Filtro por Setor")
+
+    setores = sorted(
+        df["setor"].dropna().unique().tolist()
+    ) if "setor" in df.columns else []
+
+    setores_sel = st.sidebar.multiselect(
+        "Setor:",
+        setores,
+    )
+
+    if not setores_sel:
+        st.warning("selecione pelo menos um setor")
+        st.stop()
+
+    if "setor" in df.columns:
+        df = df[
+            df["setor"]
+            .fillna("SEM_SETOR")
+            .isin(setores_sel)
+        ]
+
+    if df.empty:
+        st.warning("Nenhum dado após filtro de setor.")
         st.stop()
 
     # ==========================
@@ -123,32 +150,8 @@ def render():
         st.stop()
 
     # ==========================
-    # SETOR
+    # DATA
     # ==========================
-    setores = sorted(
-        df["setor"].dropna().unique().tolist()
-    ) if "setor" in df.columns else []
-
-    setores_sel = st.sidebar.multiselect(
-        "Setor:",
-        setores,
-    )
-
-    if not setores_sel:
-        st.warning("selecione pelo menos um setor")
-        st.stop()
-
-    if "setor" in df.columns:
-        df = df[
-            df["setor"]
-            .fillna("SEM_SETOR")
-            .isin(setores_sel)
-        ]
-
-    if df.empty:
-        st.warning("Nenhum dado após filtro de setor.")
-        st.stop()
-
     df = df.dropna(subset=["data_limite_expedicao"])
 
     data_min = df["data_limite_expedicao"].min().date()
